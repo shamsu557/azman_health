@@ -1,0 +1,16 @@
+body{font:15px/1.6 system-ui;background:#f3f6fb;color:#132b43;margin:0}header{background:#092d50;color:white;padding:24px max(20px,calc((100vw - 1160px)/2));box-shadow:0 8px 24px #092d5022}main{max-width:1140px;margin:auto;padding:24px 18px}section{background:white;padding:20px;margin:15px 0;border:1px solid #e4eaf1;border-radius:16px;box-shadow:0 8px 25px #1232}input,select,textarea,button{padding:10px;margin:5px;max-width:100%;border:1px solid #aaa;border-radius:9px}button{background:#850d3a;color:white;cursor:pointer}textarea{width:95%;min-height:65px}pre{white-space:pre-wrap;word-break:break-word;background:#f2f3f5;padding:12px}a{color:#850d3a}.clinical-back{background:#fff;padding:14px max(20px,calc((100vw - 1160px)/2));border-bottom:1px solid #e4eaf1}.clinical-back a{display:inline-block;text-decoration:none;font-weight:700}header h1{font-size:clamp(24px,4vw,34px);margin:12px 0 0}section h2{font-size:21px}section form{display:flex;flex-wrap:wrap;gap:10px;align-items:start}section form input,section form select{flex:1 1 220px}section form textarea{flex:1 1 100%}@media(max-width:640px){section{padding:16px}section form input,section form select,section form button{width:100%;margin:2px 0}main{padding:12px}}
+/* Standalone clinical console design */
+body{background:#f1f5fa;color:#13283f} .clinical-back{position:sticky;top:0;z-index:10}
+.clinical-back a{display:inline-flex;align-items:center;background:#f4e8ef;color:#7e123b;padding:10px 16px;border-radius:10px;border:1px solid #e4c8d4}
+main{max-width:1200px} section{box-shadow:0 8px 28px rgba(13,42,70,.08)}
+section h2{border-bottom:1px solid #e7edf4;padding-bottom:12px;color:#0a3557}
+button{background:#8b123e;border:0;padding:11px 16px;font-weight:650}button:hover{background:#650e30}
+input,select,textarea{background:#fff;border:1px solid #cbd5e1}pre{border-radius:10px;max-height:400px;overflow:auto}
+@media(max-width:700px){header{padding:18px}section form{display:block}section form input,section form select,section form textarea,section form button{display:block;width:100%;margin:8px 0}}
+
+/* Clinical header: consistent with the light Azman HealthConnect headers. */
+body > header{background:#fff!important;color:#102f4a!important;border-bottom:1px solid #e1e8f0!important;box-shadow:0 3px 16px rgba(15,44,72,.07)!important;display:flex;align-items:center;gap:18px;padding:17px max(20px,calc((100vw - 1160px)/2))!important;min-height:94px}
+body > header img{height:58px;width:auto;max-width:220px;object-fit:contain;background:transparent;border:0;padding:0}
+body > header h1{margin:0;color:#102f4a;font-size:clamp(22px,3vw,29px);line-height:1.2}
+body > header .clinical-heading p{margin:5px 0 0;color:#60758a;font-size:13px}
+@media(max-width:600px){body > header{gap:12px;min-height:78px;padding:13px 16px!important}body > header img{height:42px;max-width:125px}body > header h1{font-size:19px}body > header .clinical-heading p{font-size:11px}}
