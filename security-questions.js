@@ -1,0 +1,1 @@
+module.exports = ["What is the name of your first school?", "What is the name of your childhood best friend?", "What was the name of your first pet?", "In which town did your parents first meet?", "What is the middle name of your oldest sibling?", "What was the name of your primary school teacher?"];
