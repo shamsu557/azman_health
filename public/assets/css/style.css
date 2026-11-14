@@ -147,3 +147,15 @@ header>div{gap:16px}
  #portal #nav.mobile-open{display:flex;flex-direction:column}
  #portal #nav .sidebar-account{width:100%}
 }
+
+
+/* Header notification icon aligned with brand and mobile menu */
+#headerNotifications{display:inline-flex;position:relative;align-items:center;justify-content:center;flex:0 0 44px;width:44px;height:44px;border:1px solid #dbe3ec;border-radius:12px;background:#fff;color:#173b5e;cursor:pointer}
+#headerNotifications svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#headerNotifications .notification-count{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#dc2626;color:#fff;font-size:10px;font-weight:700;line-height:18px;text-align:center}
+header>div{display:flex;align-items:center;gap:12px}
+header>div>img{margin-right:auto}
+#mobileMenu{margin-left:0}
+.availability-time-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.availability-form{max-width:720px}
+@media(max-width:640px){header>div{gap:8px}header>div>img{max-width:58%;height:auto;max-height:52px}.availability-time-grid{grid-template-columns:1fr 1fr}}
