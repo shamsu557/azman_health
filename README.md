@@ -169,3 +169,11 @@ Run `sql/messaging_notifications_upgrade.sql` once against the existing Azman da
 - Emergency requests and backup escalation use database-backed clinician dropdowns rather than manually typed IDs.
 - Shift listing displays clinician names and offers edit/delete controls to administrators and support.
 - Clinical console API requests use the existing `/api` route paths and display clearer connection/HTTP errors.
+
+
+## Booking availability and clinical categorisation update
+- Doctor shifts are now included in the availability calendar and booking-slot calculation. A shift with scheduled/checked-in status and physical/online/both coverage creates bookable 30-minute slots; cancelled/completed and on-call-only shifts do not.
+- Availability and shifts are displayed together. Do not create a duplicate availability period for a period already covered by a shift; the API explains this instead of silently duplicating it.
+- Booking slots include windows that have already started but still have future appointment time remaining, and look ahead up to 14 days by default.
+- Booking can filter clinicians by selected department and specialty. GOPD is treated as a general pool and is not restricted to one specialty.
+- Account creation uses department and specialty dropdowns. Clinical licence is optional; specialty can be left blank for non-clinical roles.
