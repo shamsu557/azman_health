@@ -161,3 +161,11 @@ Run `sql/messaging_notifications_upgrade.sql` once against the existing Azman da
 - The dependant-change-request screen has been removed from administrator and support navigation and dashboards. Legacy request endpoints/tables are retained for compatibility but are not used by the user interface.
 - User Management now presents Edit user, Save status and Delete user actions. The reset-password shortcut is removed from the main management screens.
 - Delete user is implemented as account deactivation (status=suspended), not a hard database deletion, to preserve appointments, prescriptions, clinical records and audit trails. Super-administrator accounts are protected; IT Support cannot modify administrator accounts.
+
+
+## Clinical operations console correction
+- Doctor/consultant selection is now populated from the authenticated `/api/clinicians` database endpoint. The user selects a name; the app submits the corresponding internal ID.
+- Shift creation uses explicit start date, start time, end date and end time fields.
+- Emergency requests and backup escalation use database-backed clinician dropdowns rather than manually typed IDs.
+- Shift listing displays clinician names and offers edit/delete controls to administrators and support.
+- Clinical console API requests use the existing `/api` route paths and display clearer connection/HTTP errors.
