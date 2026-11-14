@@ -1,80 +1,42 @@
-/* Azman HealthConnect — Clinical Operations workspace */
-:root{--clinical-ink:#17324b;--clinical-muted:#657b90;--clinical-line:#e1e9f0;--clinical-blue:#174e78;--clinical-bg:#f4f7fb;--clinical-card:#fff}
 *{box-sizing:border-box}
-body.clinical-console-page{margin:0;background:var(--clinical-bg);color:var(--clinical-ink);font:15px/1.5 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-.clinical-topbar{min-height:92px;background:#fff;border-bottom:1px solid var(--clinical-line);box-shadow:0 2px 12px rgba(21,49,74,.05);display:flex;align-items:center;gap:22px;padding:14px max(18px,calc((100vw - 1240px)/2));position:sticky;top:0;z-index:20}
-.clinical-brand{display:flex;align-items:center;gap:15px;min-width:0;flex:1}
-.clinical-brand img{width:150px;max-height:55px;object-fit:contain}
-.clinical-brand h1{font-size:clamp(20px,2.5vw,27px);line-height:1.2;margin:0;color:#173b59;font-weight:750}
-.clinical-brand p{font-size:12px;color:var(--clinical-muted);margin:4px 0 0}
-.signed-in-label{font-size:12px;color:#536b80;background:#f3f6f9;border:1px solid var(--clinical-line);padding:7px 10px;border-radius:999px;white-space:nowrap}
-.icon-button{width:38px;height:38px;min-width:38px;border:1px solid #d6e1eb;background:#f7fafd;color:#254b6c;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-size:19px;line-height:1;cursor:pointer;padding:0}
-.icon-button:hover{background:#eaf2f9;border-color:#b9ccdd}
-.back-dashboard{width:auto;min-width:38px;padding:0 12px;gap:8px;font-size:13px;font-weight:650}
-.back-label{font-size:13px}
-.clinical-main{max-width:1240px;margin:0 auto;padding:26px 20px 56px}
-.clinical-intro{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 20px}
-.clinical-intro h2{margin:0;font-size:22px;color:#183a58}
-.clinical-intro p,.section-heading p{margin:4px 0 0;color:var(--clinical-muted);font-size:13px}
-.coverage-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;margin-bottom:20px}
-.metric-card{background:#fff;border:1px solid var(--clinical-line);border-radius:14px;padding:17px 19px;box-shadow:0 3px 12px rgba(20,50,76,.035)}
-.metric-card span{display:block;color:#60778d;font-size:12px;font-weight:650}
-.metric-card strong{display:block;font-size:29px;line-height:1.25;color:#174e78;margin:7px 0 2px}
-.metric-card small{font-size:11px;color:#8394a4}
-.clinical-card{background:var(--clinical-card);border:1px solid var(--clinical-line);border-radius:16px;padding:22px;margin:17px 0;box-shadow:0 4px 16px rgba(20,50,76,.045);min-width:0}
-.section-heading{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:17px}
-.section-heading h2{font-size:18px;color:#173b59;margin:0}
-.clinical-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px 15px;align-items:end;margin:0 0 18px}
-.clinical-form label{display:flex;flex-direction:column;gap:6px;color:#425d74;font-size:12px;font-weight:650;min-width:0}
-.clinical-form input,.clinical-form select,.clinical-form textarea{width:100%;min-width:0;min-height:41px;border:1px solid #ccd8e3;border-radius:9px;background:#fff;color:#203b53;padding:9px 11px;font:inherit;font-size:13px;outline:none}
-.clinical-form input:focus,.clinical-form select:focus,.clinical-form textarea:focus{border-color:#6b9bc1;box-shadow:0 0 0 3px rgba(54,117,165,.12)}
-.clinical-form textarea{min-height:86px;resize:vertical}
-.full-width{grid-column:1/-1}
-.form-actions{display:flex;align-items:center;gap:9px;grid-column:1/-1}
-.clinical-form button,.clinical-console-page button.primary,.clinical-console-page button.secondary{border:1px solid transparent;border-radius:9px;padding:9px 14px;min-height:38px;font-size:12px;font-weight:700;cursor:pointer}
-.clinical-console-page button.primary{background:#174e78;color:#fff}
-.clinical-console-page button.primary:hover{background:#103d61}
-.clinical-console-page button.secondary{background:#f4f7fa;color:#34536d;border-color:#d7e1e9}
-.icon-label{display:inline-flex;align-items:center;gap:7px}
-.data-region{width:100%;min-width:0}
-.table-scroll{width:100%;overflow-x:auto;border:1px solid var(--clinical-line);border-radius:11px}
-.clinical-table{width:100%;border-collapse:collapse;font-size:12px;min-width:760px}
-.clinical-table th{background:#f4f7fa;color:#486178;font-size:11px;text-transform:uppercase;letter-spacing:.035em;text-align:left;padding:11px 12px;white-space:nowrap}
-.clinical-table td{padding:11px 12px;border-top:1px solid #eaf0f4;color:#314b62;vertical-align:middle;max-width:260px}
-.clinical-table tr:hover td{background:#fbfdff}
-.table-actions{display:flex;align-items:center;gap:5px}
-.action-icon{width:32px;height:32px;min-width:32px;font-size:15px}
-.status-pill{display:inline-flex;padding:4px 9px;border-radius:999px;background:#edf2f7;color:#52677a;font-size:10px;font-weight:750;text-transform:capitalize;white-space:nowrap}
-.status-pending,.status-scheduled{background:#fff5df;color:#936314}
-.status-accepted,.status-arrived,.status-completed,.status-checkedin{background:#e8f6ee;color:#247349}
-.status-rejected,.status-cancelled,.status-escalated{background:#fff0f0;color:#a43a42}
-.case-summary{white-space:normal;min-width:150px;line-height:1.4}
-.contact-actions{margin:5px 0 12px}
-.empty-state{margin:0;padding:17px;color:#7b8da0;background:#f8fafc;border:1px dashed #d9e3eb;border-radius:10px;font-size:12px}
-.notice{padding:16px;border-radius:12px;margin:20px 0}
-.notice-error{background:#fff2f1;color:#9b3333;border:1px solid #f0ceca}
-.secondary-workflow{margin:14px 0;border:1px solid var(--clinical-line);border-radius:10px;padding:12px 14px;background:#fbfcfe}
-.secondary-workflow summary{cursor:pointer;color:#31536e;font-size:12px;font-weight:700}
-.compact-form{margin:14px 0 2px;grid-template-columns:repeat(2,minmax(0,1fr))}
-.consultation-toolbar{display:flex;align-items:end;gap:10px;max-width:560px;margin:10px 0}
-.consultation-toolbar label{display:flex;flex:1;flex-direction:column;gap:5px;font-size:12px;color:#425d74;font-weight:650}
-.consultation-toolbar input{width:100%;height:40px;border:1px solid #ccd8e3;border-radius:9px;padding:8px 10px}
-.chat-region{display:flex;flex-direction:column;gap:9px;max-height:380px;overflow:auto;padding:13px;border:1px solid var(--clinical-line);border-radius:12px;background:#f8fafc;margin:10px 0}
-.consultation-meta{font-size:11px;color:#627b91;padding-bottom:9px;border-bottom:1px solid #e3eaf0;font-weight:700}
-.chat-message{align-self:flex-start;max-width:min(78%,620px);background:#fff;border:1px solid #e0e8ef;border-radius:11px;padding:10px 12px;box-shadow:0 2px 5px rgba(20,50,76,.035)}
-.chat-message small{font-size:10px;color:#72869a}
-.chat-message p{margin:5px 0 0;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
-.method-requests{border-top:1px solid #e3eaf0;margin-top:9px;padding-top:9px;font-size:12px;color:#4d667d}
-.method-requests p{margin:5px 0}
-.chat-form{grid-template-columns:1fr}
-.helper-text{font-size:11px;color:#71869a;margin:8px 0}
-.result-message{position:sticky;bottom:10px;padding:10px 13px;border-radius:9px;background:#edf3f8;color:#34546e;font-size:12px;z-index:4}
-.result-message:empty{display:none}
-.result-message.success{background:#eaf7ef;color:#236b43;border:1px solid #c9e8d4}
-.result-message.error{background:#fff0ef;color:#9a3737;border:1px solid #f0ceca}
-.modal-backdrop{position:fixed;inset:0;z-index:50;background:rgba(14,35,54,.45);display:grid;place-items:center;padding:18px}
-.modal-backdrop[hidden]{display:none}
-.edit-dialog{background:#fff;width:min(680px,100%);max-height:90vh;overflow:auto;border-radius:16px;padding:22px;box-shadow:0 20px 65px rgba(10,32,52,.25)}
-.edit-dialog .section-heading h2{margin:0;font-size:18px}
-@media(max-width:850px){.clinical-form{grid-template-columns:repeat(2,minmax(0,1fr))}.clinical-topbar{gap:12px}.clinical-brand img{width:115px}.signed-in-label{max-width:150px;overflow:hidden;text-overflow:ellipsis}}
-@media(max-width:620px){.clinical-topbar{padding:11px 12px;min-height:72px;gap:8px}.clinical-brand{gap:8px}.clinical-brand img{width:72px;max-height:42px}.clinical-brand h1{font-size:17px}.clinical-brand p{font-size:10px;line-height:1.2}.signed-in-label{display:none}.back-dashboard{width:36px;min-width:36px;padding:0}.back-label{display:none}.clinical-main{padding:16px 12px 36px}.coverage-grid{grid-template-columns:1fr;gap:9px}.metric-card{padding:13px 15px}.metric-card strong{font-size:24px}.clinical-card{padding:15px 12px;border-radius:13px}.clinical-intro h2{font-size:19px}.clinical-intro p{font-size:12px}.clinical-form,.compact-form{grid-template-columns:1fr;gap:10px}.full-width,.form-actions{grid-column:1}.clinical-form button{width:100%}.section-heading h2{font-size:16px}.chat-message{max-width:94%}.consultation-toolbar{align-items:center}.edit-dialog{padding:16px}.clinical-table{min-width:700px}}
+:root{--ink:#17324d;--muted:#63758a;--line:#dce5ee;--surface:#fff;--page:#f4f7fb;--brand:#174b72;--accent:#176b87;--danger:#b42332;--shadow:0 8px 28px rgba(22,49,75,.07)}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.55 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+.clinical-back{position:sticky;top:0;z-index:20;display:flex;align-items:center;min-height:58px;padding:8px max(18px,calc((100vw - 1180px)/2));background:#fff;border-bottom:1px solid var(--line)}
+.back-dashboard{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--brand);font-weight:650;padding:9px 14px;cursor:pointer}
+.back-dashboard:hover{background:#f1f6fa}
+body>header{display:flex;align-items:center;gap:18px;padding:20px max(18px,calc((100vw - 1180px)/2));background:#fff;color:var(--ink);border-bottom:1px solid var(--line);box-shadow:0 3px 12px rgba(24,52,78,.04)}
+body>header img{width:54px;height:54px;object-fit:contain}
+.clinical-heading h1{margin:0;font-size:clamp(21px,3vw,29px);line-height:1.2;color:var(--ink);font-weight:750}
+.clinical-heading p{margin:5px 0 0;color:var(--muted);font-size:14px}
+main{width:min(1180px,100%);margin:0 auto;padding:22px 18px 48px}
+#who{padding:10px 14px;border:1px solid #d9e7f1;border-radius:10px;background:#f0f6fa;color:#34556f;font-weight:600}
+section{margin:18px 0;padding:22px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);min-width:0}
+section h2{margin:0 0 16px;font-size:19px;color:var(--ink);font-weight:720}
+section h3{font-size:16px;margin:18px 0 10px}
+section form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:end}
+section form label{display:flex;flex-direction:column;gap:6px;color:#40566c;font-weight:600;font-size:13px}
+input,select,textarea{width:100%;min-width:0;padding:11px 12px;border:1px solid #cbd7e2;border-radius:9px;background:#fff;color:var(--ink);font:inherit}
+textarea{min-height:92px;resize:vertical;grid-column:1/-1}
+button{border:1px solid #174b72;border-radius:9px;background:#174b72;color:#fff;padding:10px 15px;font:600 14px/1.3 inherit;cursor:pointer}
+button:hover{filter:brightness(.96)}
+form button{justify-self:start}
+.data-panel{width:100%;overflow-x:auto}
+.data-table{width:100%;border-collapse:collapse;min-width:650px;background:#fff;font-size:14px}
+.data-table th{padding:12px 13px;background:#f1f5f9;color:#40566c;text-align:left;font-weight:700;border-bottom:1px solid var(--line)}
+.data-table td{padding:12px 13px;border-bottom:1px solid #e8edf2;vertical-align:middle}
+.data-table tr:last-child td{border-bottom:0}
+.data-table button{margin:2px;padding:7px 10px;font-size:13px}
+.status-pill{display:inline-flex;border-radius:999px;padding:4px 9px;background:#edf3f8;color:#36556f;font-size:12px;font-weight:700}
+#emergencyContacts{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0}
+#emergencyContacts button{background:#fff;color:var(--brand);border-color:#bfd0df}
+#result{position:sticky;bottom:12px;z-index:10;margin-top:16px;padding:10px 14px;border-radius:9px;background:#eaf1f7;color:#284b67}
+#clinicalAccess{margin:24px auto;max-width:760px;padding:22px;background:#fff;border:1px solid var(--line);border-radius:14px}
+.hidden,[hidden]{display:none!important}
+@media(max-width:700px){main{padding:14px 12px 34px}section{padding:16px;margin:13px 0}section form{grid-template-columns:1fr}textarea{grid-column:1}.clinical-back{min-height:52px;padding:7px 12px}body>header{padding:15px 14px;gap:12px}body>header img{width:44px;height:44px}.data-table{font-size:13px}.data-table td,.data-table th{padding:9px 10px}}
+
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.summary-item{display:flex;flex-direction:column;gap:5px;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fbfdff;min-width:0}
+.summary-item span{font-size:12px;color:var(--muted);font-weight:650}
+.summary-item strong{font-size:14px;overflow-wrap:anywhere}
+.data-panel:empty:after{content:'No records available.';display:block;color:var(--muted);padding:12px}
+#result:empty{display:none}

@@ -173,14 +173,10 @@ header>div>img{margin-right:auto}
 @media(max-width:650px){.user-management-tabs{display:grid;grid-template-columns:1fr 1fr}#editUserForm,#newUserForm{grid-template-columns:1fr}#editUserForm .flex,#newUserForm .flex,#editUserForm p,#newUserForm p{grid-column:1}}
 
 
-/* Final sidebar refinements: hide the mobile menu control on desktop */
-@media (min-width: 821px){
-  #mobileMenu{display:none!important;visibility:hidden!important}
-}
-@media (max-width: 820px){
-  #mobileMenu{display:flex!important;visibility:visible!important}
-}
-
-/* Keep My Profile as the final navigation item */
-#portal #nav .navbtn[data-view="profile"]{order:90}
-#portal #nav .sidebar-account{order:100}
+/* Consistent icon-only action buttons across user directory, account management and shifts */
+.action-icon{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;font-size:19px;line-height:1;font-weight:800}
+button:has(.action-icon){display:inline-flex;align-items:center;justify-content:center;min-width:38px;min-height:36px;padding:7px 9px;gap:0}
+button:has(.action-icon):focus-visible{outline:3px solid #83b9dc;outline-offset:2px}
+#headerNotifications{position:relative;overflow:visible!important;opacity:1!important}
+#headerNotificationCount{display:flex!important;position:absolute;top:-8px;right:-8px;min-width:25px;height:25px;padding:0 6px;align-items:center;justify-content:center;border-radius:999px;background:#c1121f;color:#fff;border:2px solid #fff;font-size:13px;font-weight:900;line-height:1;box-shadow:0 2px 6px #0005;text-shadow:none}
+#headerNotificationCount.hidden{display:flex!important}
