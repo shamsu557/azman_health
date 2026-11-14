@@ -116,9 +116,34 @@ body.auth-mode header>div{max-width:1450px}
 #mobileMenu .menu-icon{display:block;width:26px;height:26px}
 @media(max-width:820px){#mobileMenu{display:flex;align-items:center;justify-content:center;padding:8px;width:46px;height:44px}#mobileMenu::after{content:none}}
 
-/* Role dashboards and PWA install panel */
+/* Role dashboards and responsive interface */
 .metric{display:block;font-size:30px;color:#102e49;margin-top:8px}.dash-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.reception-actions{margin:18px 0 24px}.reception-actions button{min-width:145px}.action-grid button{cursor:pointer}.action-grid button:hover{filter:brightness(.97)}
 @media print{header,#nav,#mobileMenu,footer,.action-grid,[data-reception-id],[data-wa-appt]{display:none!important}body.portal-mode main{padding:0!important}#content{border:0!important;box-shadow:none!important}}
 
 /* In-app messages and notification centre */
 .notice-card{margin:12px 0;padding:14px;border:1px solid #e2e8f0;border-radius:12px;background:#fff}.notice-unread{border-left:4px solid #0f766e;background:#f0fdfa}.chat-messages{display:flex;flex-direction:column;gap:10px;max-height:480px;overflow:auto;padding:12px 4px}.chat-bubble{max-width:88%;padding:10px 13px;border-radius:14px;background:#f1f5f9;overflow-wrap:anywhere}.chat-bubble p{margin:5px 0 0;white-space:pre-wrap}.chat-bubble small{color:#64748b}.chat-mine{align-self:flex-end;background:#e0f2fe}.chat-theirs{align-self:flex-start;background:#f1f5f9}#notificationBadge{display:inline-flex;align-items:center;gap:6px;margin-bottom:12px}.portal-layout .panel{min-width:0}
+
+
+/* Dashboard header and sidebar account controls */
+#mobileMenu{display:inline-flex;align-items:center;justify-content:center;margin-left:auto;width:46px;height:44px;padding:8px;border-radius:10px}
+#mobileMenu .menu-icon{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+#mobileMenu .menu-x{display:none}
+#mobileMenu.is-open .menu-icon>path:first-child{display:none}
+#mobileMenu.is-open .menu-x{display:block}
+header>div{gap:16px}
+#portal #nav{min-height:520px}
+.sidebar-account{margin-top:auto;padding-top:18px;border-top:1px solid #ffffff35;display:flex;flex-direction:column;gap:12px}
+.sidebar-profile{display:flex;align-items:center;gap:11px;width:100%;padding:8px;border:0;background:#ffffff12;color:#fff;text-align:left;border-radius:12px;cursor:pointer}
+.sidebar-profile img,.sidebar-profile .avatar,.sidebar-profile .profile-photo{width:44px;height:44px;min-width:44px;object-fit:cover;border-radius:50%}
+.sidebar-person{display:flex;flex-direction:column;min-width:0;gap:4px}
+.sidebar-person strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-person small{font-size:11px;color:#d5e1ef;overflow-wrap:anywhere}
+#portal #nav .sidebar-logout{background:#ffffff17;border-color:#ffffff30;text-align:center}
+@media(max-width:820px){
+ header>div{display:flex;align-items:center;justify-content:space-between}
+ #mobileMenu{display:inline-flex;flex:0 0 44px;margin:0}
+ #portal .portal-layout{display:block}
+ #portal #nav{min-height:0}
+ #portal #nav.mobile-open{display:flex;flex-direction:column}
+ #portal #nav .sidebar-account{width:100%}
+}
