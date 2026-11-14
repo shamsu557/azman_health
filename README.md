@@ -117,3 +117,29 @@ The public Clinical Operations link has been removed from the login page. Admin/
 - Admin and IT Support are the only account-creation routes; the public registration form/API is disabled.
 - Employee roles (university staff, doctors, consultants, nurses, lab, pharmacy, reception, records, support, IT and administrators) can manage their own dependants.
 - Dependant deletion is a soft deactivation so historical appointments and clinical records are preserved.
+
+
+## November 14, 2026: WhatsApp role permissions, role dashboards and PWA
+- WhatsApp contact permissions are role-scoped: admin/support/IT can open registered user and dependant numbers in their portal; reception can contact users/dependants with active appointment records; doctors/consultants can contact only patients/dependants with an assigned appointment, including requests awaiting confirmation; patients can contact their assigned clinician. Links use `wa.me` and registered phone numbers, without WhatsApp API credentials. WhatsApp calls are started manually in WhatsApp.
+- Added an appointment-scoped WhatsApp endpoint so doctors see a Chat Patient action for their own requested/confirmed appointments and patients see Chat Doctor for their own appointments.
+- Reception dashboard now includes today's queue, confirmation, check-in, no-show, patient directory/search, booking for existing patients/dependants, WhatsApp contact and doctor availability. Reception API responses omit the consultation reason; reception is blocked from clinical notes/records endpoints.
+- IT Support dashboard includes account provisioning, permitted profile editing, account status, temporary password reset, WhatsApp directory and technical account audit events. IT Support cannot manage administrator accounts.
+- Added PWA manifest, install prompt and service worker. Android/desktop use native install prompts when supported and otherwise show browser instructions. iPhone/iPad users are guided through Safari Share > Add to Home Screen > Add. `Maybe Later` dismisses only for the current visit; successful installation is remembered.
+- The service worker caches only versioned public shell assets and the offline information page. It does not cache API responses, authenticated pages, patient records, images from private endpoints or documents. HTTPS is required for PWA installation except localhost.
+- Run `npm run test:pwa` to verify manifest assets, iOS/Android/desktop guidance presence and sensitive-cache exclusions.
+
+## In-app messaging and notifications update
+
+This update adds role-scoped direct messaging and a private notification centre.
+
+- Students and staff can initiate in-app messages to doctors and consultants.
+- Doctors and consultants can reply only to patients with an active/requested appointment assigned to them.
+- IT Support, Support and administrators can message any approved portal user.
+- Messages are available from the Messages item in every user dashboard.
+- A user can clear one conversation or clear all conversations from their own view. Clearing does not delete the other participant's copy.
+- Notifications are private to each account, can be marked read individually or all at once, and can be cleared from the user's view.
+- Appointment submissions, appointment status changes, new messages and emergency recalls create in-app notifications.
+
+### Database migration for existing installations
+
+Run `sql/messaging_notifications_upgrade.sql` once against the existing Azman database. Fresh installations already include these tables in `sql/schema.sql`. No existing user, appointment, clinical, or message data is dropped.

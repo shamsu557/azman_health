@@ -1,0 +1,39 @@
+AZMAN UNIVERSITY HEALTHCONNECT — PWA INSTALLATION UPDATE
+
+Behaviour adapted from the uploaded The Clinic PWA install flow.
+
+Desktop (Chrome/Edge)
+- Show an Install App prompt.
+- Use the native browser installation prompt when available.
+- If native installation is unavailable, show browser menu instructions.
+
+Android
+- Show Install App.
+- Use the native install prompt when supported; otherwise explain Chrome menu > Install app / Add to Home screen.
+
+iPhone/iPad (iOS)
+- Show Install App.
+- Tapping it displays the manual Safari steps: Share > Add to Home Screen > Add (enable Open as Web App if shown).
+- iOS does not provide a normal webpage install prompt API.
+
+Maybe Later / Close
+- Hide the prompt only for the current page visit. The reminder can return on a later visit.
+
+Successful installation
+- Remember successful native installation events.
+- Hide inside standalone mode.
+- Do not save a dismissal as an installation.
+
+Service worker
+- Cache only versioned public shell assets and offline.html/offline.css.
+- Never cache API responses, authenticated navigation, patient records, private images or documents.
+
+Deployment
+1. Deploy the updated application over HTTPS (localhost is supported for development).
+2. Keep .env, database and uploads/ unchanged.
+3. Run npm install if deploying a fresh environment.
+4. Restart Node.js and reopen the HTTPS site.
+5. Test Chrome/Edge desktop, Android Chrome and iPhone Safari.
+
+Test: npm run test:pwa
+No database migration is required for this update.
