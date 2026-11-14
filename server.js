@@ -107,7 +107,7 @@ app.get('/api/availability/slots',auth,approved,wrap(async(req,res)=>{
  const params=[];let filters='';
  if(clinicianId){filters+=' AND u.id=?';params.push(clinicianId)}
  if(department && department.toUpperCase()!=='GOPD'){filters+=' AND u.department=?';params.push(department)}
- if(specialty && department.toUpperCase()!=='GOPD'){filters+=' AND cp.specialty=?';params.push(specialty)}
+ if(specialty){filters+=' AND cp.specialty=?';params.push(specialty)}
  const [windows]=await query(`SELECT a.clinician_id,a.starts_at,a.ends_at,u.name clinician FROM availability a JOIN users u ON u.id=a.clinician_id LEFT JOIN clinician_profiles cp ON cp.user_id=u.id WHERE a.active=1 AND a.ends_at>NOW() AND a.starts_at<DATE_ADD(NOW(),INTERVAL ${days} DAY) AND u.status='approved' ${filters}
  UNION ALL
  SELECT sh.clinician_id,sh.starts_at,sh.ends_at,u.name clinician FROM doctor_shifts sh JOIN users u ON u.id=sh.clinician_id LEFT JOIN clinician_profiles cp ON cp.user_id=u.id WHERE sh.status IN ('scheduled','checked_in') AND sh.ends_at>NOW() AND sh.starts_at<DATE_ADD(NOW(),INTERVAL ${days} DAY) AND u.status='approved' AND sh.coverage IN ('online','physical','both') ${filters.replaceAll('a.clinician_id','sh.clinician_id').replaceAll('u.id','u.id')}
