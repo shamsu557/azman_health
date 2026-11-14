@@ -30,6 +30,19 @@ CREATE TABLE IF NOT EXISTS appointments (
 CREATE TABLE IF NOT EXISTS encounters (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, appointment_id BIGINT UNSIGNED NOT NULL UNIQUE, clinician_id BIGINT UNSIGNED NOT NULL, subjective TEXT, objective TEXT, assessment TEXT, plan TEXT, signed_at DATETIME NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(appointment_id) REFERENCES appointments(id), FOREIGN KEY(clinician_id) REFERENCES users(id));
 CREATE TABLE IF NOT EXISTS vitals (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, appointment_id BIGINT UNSIGNED NOT NULL, nurse_id BIGINT UNSIGNED NOT NULL, temperature DECIMAL(4,1), systolic SMALLINT, diastolic SMALLINT, pulse SMALLINT, oxygen SMALLINT, weight DECIMAL(6,2), notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(appointment_id) REFERENCES appointments(id), FOREIGN KEY(nurse_id) REFERENCES users(id));
 CREATE TABLE IF NOT EXISTS lab_orders (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, appointment_id BIGINT UNSIGNED NOT NULL, requested_by BIGINT UNSIGNED NOT NULL, test_name VARCHAR(160) NOT NULL, status ENUM('ordered','collected','processing','released') DEFAULT 'ordered', result_text TEXT, reviewed_by BIGINT UNSIGNED NULL, released_at DATETIME NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(appointment_id) REFERENCES appointments(id));
+CREATE TABLE IF NOT EXISTS lab_result_documents (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ lab_order_id BIGINT UNSIGNED NOT NULL,
+ uploaded_by BIGINT UNSIGNED NOT NULL,
+ file_name VARCHAR(180) NOT NULL,
+ mime_type VARCHAR(80) NOT NULL,
+ file_data LONGBLOB NOT NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(lab_order_id) REFERENCES lab_orders(id) ON DELETE CASCADE,
+ FOREIGN KEY(uploaded_by) REFERENCES users(id),
+ INDEX(lab_order_id,created_at)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS prescriptions (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, appointment_id BIGINT UNSIGNED NOT NULL, clinician_id BIGINT UNSIGNED NOT NULL, medication VARCHAR(160) NOT NULL, dose VARCHAR(100) NOT NULL, route VARCHAR(50), frequency VARCHAR(100), duration VARCHAR(100), instructions TEXT, status ENUM('ordered','dispensed','cancelled') DEFAULT 'ordered', dispensed_by BIGINT UNSIGNED NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(appointment_id) REFERENCES appointments(id));
 CREATE TABLE IF NOT EXISTS inventory (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, medication VARCHAR(160) NOT NULL, batch VARCHAR(100), quantity INT NOT NULL DEFAULT 0, expiry_date DATE, UNIQUE KEY uq_med_batch(medication,batch));
 CREATE TABLE IF NOT EXISTS notifications (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id BIGINT UNSIGNED NULL, channel ENUM('in_app','whatsapp','email') NOT NULL, message TEXT NOT NULL, status ENUM('queued','sent','failed') DEFAULT 'queued', attempts INT DEFAULT 0, last_error VARCHAR(500), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(user_id) REFERENCES users(id));
