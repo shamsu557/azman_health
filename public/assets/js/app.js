@@ -65,35 +65,6 @@ function bindDepartmentSpecialty(formEl){
 
 function wireRank(form){const role=form.querySelector('[name=role]'),rank=form.querySelector('[name=rank]');if(!role||!rank)return;const refresh=()=>{const current=rank.value;rank.innerHTML='<option value="">Select rank</option>'+(rankOptions[role.value]||['Staff']).map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');if([...rank.options].some(o=>o.value===current))rank.value=current};role.addEventListener('change',refresh);refresh()}
 
-
-// Convert common record/action controls to compact, accessible icon buttons.
-const actionIconMap=[
- [/^edit(?:\s|$)/i,'edit','<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>'],
- [/^(delete|remove)(?:\s|$)/i,'delete','<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/>'],
- [/^(save|update)(?:\s|$)/i,'save','<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>'],
- [/^(approve|accept|confirm)(?:\s|$)/i,'approve','<path d="m5 12 4 4L19 6"/>'],
- [/^(reject|decline)(?:\s|$)/i,'reject','<path d="m6 6 12 12M18 6 6 18"/>'],
- [/^(cancel|close)(?:\s|$)/i,'cancel','<path d="m6 6 12 12M18 6 6 18"/>'],
- [/^(back)(?:\s|$)/i,'back','<path d="m15 18-6-6 6-6"/><path d="M20 12H9"/>'],
- [/^(refresh|reload)(?:\s|$)/i,'refresh','<path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2"/>'],
- [/^(send)(?:\s|$)/i,'send','<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>'],
- [/^(view|open)(?:\s|$)/i,'view','<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'],
- [/^(add|create)(?:\s|$)/i,'add','<path d="M12 5v14M5 12h14"/>']
-];
-function iconifyActionButtons(){
- const host=$('#content');if(!host)return;
- host.querySelectorAll('button:not([data-iconized])').forEach(button=>{
-  const label=(button.textContent||'').trim().replace(/\s+/g,' ');if(!label)return;
-  const found=actionIconMap.find(([pattern])=>pattern.test(label));if(!found)return;
-  const [,kind,path]=found;button.dataset.iconized='true';button.classList.add('icon-only-action',`icon-action-${kind}`);
-  button.setAttribute('aria-label',label);button.title=label;
-  button.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${path}</g></svg>`;
- });
-}
-const actionIconObserver=new MutationObserver(()=>iconifyActionButtons());
-function startActionIconObserver(){const host=$('#content');if(host){iconifyActionButtons();actionIconObserver.observe(host,{childList:true,subtree:true})}}
-document.addEventListener('DOMContentLoaded',startActionIconObserver);startActionIconObserver();
-
 async function boot(){csrf=(await req('/csrf')).token;const s=await req('/auth/me');if(s.user){me=s.user;if(me.must_change_password){showAuth('login');await firstLoginSetup()}else await portal()}else{showAuth('login')}}
 function showAuth(which){if(!$('#loginForm'))$('#auth').innerHTML=initialAuthMarkup;document.body.classList.add('auth-mode');document.body.classList.remove('portal-mode');$('#auth').classList.remove('hidden');$('#portal').classList.add('hidden');$('#loginForm').classList.remove('hidden');const reg=$('#registerForm');if(reg)reg.remove();}
 $('#loginForm').onsubmit=async e=>{e.preventDefault();try{const d=await req('/auth/login','POST',form(e.target));me=d.user;csrf=d.csrf;if(d.must_change_password){await firstLoginSetup();return;}await portal();toast('Signed in',true)}catch(e){toast(e.message)}};
@@ -104,7 +75,7 @@ async function portal(){resetIdleTimer();document.body.classList.remove('auth-mo
  const nav=[['dashboard','Dashboard'],['appointments','Appointments']];
  if(['student',...employeeRoles].includes(me.role))nav.push(['booking',me.role==='reception'?'Book for patient':'Book appointment']);
  if(dependantRoles.includes(me.role))nav.push(['dependants','My dependants']);
- nav.push(['messages','Messages'],['profile','My profile']);
+ nav.push(['messages','Messages']);
  if(me.role==='reception')nav.push(['frontdesk','Reception desk'],['patients','Patient directory'],['booking','Book for patient'],['contacts','WhatsApp contacts'],['availability','Doctor availability']);
  if(['admin','support','it'].includes(me.role))nav.push(['users','User directory'],['contacts','WhatsApp contacts']);
   if(['admin','support','doctor','consultant'].includes(me.role))nav.push(['availability','Doctor availability']);
@@ -116,8 +87,10 @@ async function portal(){resetIdleTimer();document.body.classList.remove('auth-mo
  if(['admin','support','reception','nurse','lab','pharmacy'].includes(me.role))nav.push(['workflow','Clinical workflows']);
  if(['admin','support'].includes(me.role))nav.push(['clinicalConsole','Clinical operations']);
  if(['admin','support'].includes(me.role))nav.push(['shifts','Doctor shifts']);
- const accountNumber=me.identifier||me.spn_number||me.registration_number||'Account number not set';
- $('#nav').innerHTML=nav.filter((x,i)=>nav.findIndex(y=>y[0]===x[0])===i).map(x=>`<button class="navbtn" data-view="${x[0]}">${x[1]}</button>`).join('')+`<div class="sidebar-account"><button type="button" class="sidebar-profile" id="sidebarProfile" aria-label="Open my profile">${photo(me.profile_image_id,me.name)}<span class="sidebar-person"><strong>${esc(me.name)}</strong><small>${esc(accountNumber)}</small></span></button><button type="button" class="navbtn sidebar-logout" id="sidebarLogout">Log out</button></div>`;
+ nav.push(['profile','My profile']);
+ const accountNumber=me.identifier||'Not assigned';
+ const accountLabel=me.role==='student'?'Registration number':(['staff','doctor','consultant','nurse','admin','support','reception','records','lab','pharmacy','it'].includes(me.role)?'SPN number':'Account number');
+ $('#nav').innerHTML=nav.filter((x,i)=>nav.findIndex(y=>y[0]===x[0])===i).map(x=>`<button class="navbtn" data-view="${x[0]}">${x[1]}</button>`).join('')+`<div class="sidebar-account"><button type="button" class="sidebar-profile" id="sidebarProfile" aria-label="Open my profile">${photo(me.profile_image_id,me.name)}<span class="sidebar-person"><strong>${esc(me.name)}</strong><small>${esc(accountLabel)}: ${esc(accountNumber)}</small></span></button><button type="button" class="navbtn sidebar-logout" id="sidebarLogout">Log out</button></div>`;
  $('#nav').querySelectorAll('button[data-view]').forEach(b=>b.onclick=()=>view(b.dataset.view));$('#sidebarProfile').onclick=()=>view('profile');$('#sidebarLogout').onclick=()=>$('#logout').click();
  $('#mobileMenu').onclick=()=>{const open=$('#nav').classList.toggle('mobile-open');$('#mobileMenu').classList.toggle('is-open',open);$('#mobileMenu').setAttribute('aria-expanded',String(open));$('#mobileMenu').setAttribute('aria-label',open?'Close navigation menu':'Open navigation menu')};view('dashboard')}
 
