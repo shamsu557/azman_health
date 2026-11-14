@@ -119,14 +119,12 @@ The public Clinical Operations link has been removed from the login page. Admin/
 - Dependant deletion is a soft deactivation so historical appointments and clinical records are preserved.
 
 
-## November 14, 2026: WhatsApp role permissions, role dashboards and PWA
-- WhatsApp contact permissions are role-scoped: admin/support/IT can open registered user and dependant numbers in their portal; reception can contact users/dependants with active appointment records; doctors/consultants can contact only patients/dependants with an assigned appointment, including requests awaiting confirmation; patients can contact their assigned clinician. Links use `wa.me` and registered phone numbers, without WhatsApp API credentials. WhatsApp calls are started manually in WhatsApp.
+## November 14, 2026: WhatsApp role permissions and role dashboards
+- WhatsApp contact permissions are role-scoped: admin/support/IT can open registered user and dependant numbers in their portal; reception can contact users/dependants with active appointment records; doctors/consultants can contact only patients/dependants with an assigned appointment, including requests awaiting confirmation; patients can contact their assigned clinician. Links use `wa.me` and require the user's WhatsApp app/account.
 - Added an appointment-scoped WhatsApp endpoint so doctors see a Chat Patient action for their own requested/confirmed appointments and patients see Chat Doctor for their own appointments.
-- Reception dashboard now includes today's queue, confirmation, check-in, no-show, patient directory/search, booking for existing patients/dependants, WhatsApp contact and doctor availability. Reception API responses omit the consultation reason; reception is blocked from clinical notes/records endpoints.
+- Reception dashboard includes today's queue, confirmation, check-in, no-show, patient directory/search, booking for existing patients/dependants, WhatsApp contact and doctor availability. Reception API responses omit the consultation reason; reception is blocked from clinical notes/records endpoints.
 - IT Support dashboard includes account provisioning, permitted profile editing, account status, temporary password reset, WhatsApp directory and technical account audit events. IT Support cannot manage administrator accounts.
-- Added PWA manifest, install prompt and service worker. Android/desktop use native install prompts when supported and otherwise show browser instructions. iPhone/iPad users are guided through Safari Share > Add to Home Screen > Add. `Maybe Later` dismisses only for the current visit; successful installation is remembered.
-- The service worker caches only versioned public shell assets and the offline information page. It does not cache API responses, authenticated pages, patient records, images from private endpoints or documents. HTTPS is required for PWA installation except localhost.
-- Run `npm run test:pwa` to verify manifest assets, iOS/Android/desktop guidance presence and sensitive-cache exclusions.
+- HealthConnect runs as a standard responsive website; the website logo, normal browser favicon, mobile layout, authentication and all healthcare modules remain enabled.
 
 ## In-app messaging and notifications update
 
@@ -143,3 +141,23 @@ This update adds role-scoped direct messaging and a private notification centre.
 ### Database migration for existing installations
 
 Run `sql/messaging_notifications_upgrade.sql` once against the existing Azman database. Fresh installations already include these tables in `sql/schema.sql`. No existing user, appointment, clinical, or message data is dropped.
+
+
+## Clinical workflow, availability and session-security update
+- Admin/support can publish doctor/consultant availability windows, edit them and delete them when no active appointments depend on the window. Doctors/consultants can manage their own windows. Reception can view availability.
+- Booking continues to derive 30-minute appointment slots from the published availability windows; occupied times are excluded and the server rechecks availability and double-booking during booking.
+- Reception WhatsApp directory now lists all approved portal accounts and active dependants with registered phone numbers. This opens a WhatsApp chat; it does not send automated messages.
+- Authenticated sessions expire after five minutes without activity. The server enforces the idle timeout and the browser signs the user out after five minutes without interaction.
+- Doctors/consultants can view patient history only for patients with appointments assigned to them.
+- Patients can view their prescriptions and laboratory requests, download prescription and laboratory request PDFs, and upload a test-result PDF/JPG/PNG (maximum 10 MB) for the healthcare team.
+- Uploaded laboratory files are stored in MySQL in the `lab_result_documents` table, not in a public upload folder. Access is restricted to the patient, assigned clinician, laboratory role and administrators.
+- Fresh database: use `sql/AZMAN_COMPLETE_FRESH_INSTALL.sql` (or `sql/schema.sql`). Existing database: run `sql/availability_sessions_lab_documents_upgrade.sql` once in phpMyAdmin. No existing user or clinical records are deleted.
+- The generated prescription/test-request PDFs are printable administrative documents; clinical staff must verify all details, and prescriptions must be issued only by appropriately authorized prescribers.
+
+
+## Account and dependant self-service refinements
+- Doctor availability is not fixed to 10:00 a.m.–4:00 p.m. That was an example only. Authorized staff enter any valid start/end date-time for each schedule; booking slots are generated within those windows.
+- All approved portal account types, including students, can manage their own dependants from My dependants: add, edit, upload a dependant photo, or remove. Changes apply directly to the account holder's own dependants; no administrator approval workflow is used.
+- The dependant-change-request screen has been removed from administrator and support navigation and dashboards. Legacy request endpoints/tables are retained for compatibility but are not used by the user interface.
+- User Management now presents Edit user, Save status and Delete user actions. The reset-password shortcut is removed from the main management screens.
+- Delete user is implemented as account deactivation (status=suspended), not a hard database deletion, to preserve appointments, prescriptions, clinical records and audit trails. Super-administrator accounts are protected; IT Support cannot modify administrator accounts.

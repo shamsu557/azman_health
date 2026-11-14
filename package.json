@@ -10,8 +10,7 @@
     "build:css": "tailwindcss -i public/assets/css/input.css -o public/assets/css/style.css --minify",
     "test": "node --test tests/*.test.js",
     "admin:create": "node hash.js",
-    "notifications:send": "node scripts/notification-worker.js",
-    "test:pwa": "node --test tests/pwa.test.js tests/role-workflows.test.js"
+    "notifications:send": "node scripts/notification-worker.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
