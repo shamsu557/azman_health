@@ -171,3 +171,20 @@ header>div>img{margin-right:auto}
 #editUserForm .flex,#newUserForm .flex,#editUserForm p,#newUserForm p{grid-column:1/-1}
 #specialtyGuidance{margin-top:-4px}
 @media(max-width:650px){.user-management-tabs{display:grid;grid-template-columns:1fr 1fr}#editUserForm,#newUserForm{grid-template-columns:1fr}#editUserForm .flex,#newUserForm .flex,#editUserForm p,#newUserForm p{grid-column:1}}
+
+
+/* Compact, accessible icon-only controls for record actions */
+#content button.icon-only-action{
+ display:inline-flex!important;align-items:center;justify-content:center;
+ width:36px;min-width:36px;height:36px;padding:0!important;margin:2px;
+ border-radius:9px!important;line-height:1!important;font-size:0!important;
+ vertical-align:middle;box-shadow:0 1px 3px rgba(16,42,67,.10);
+}
+#content button.icon-only-action svg{width:17px;height:17px;display:block;flex:none}
+#content button.icon-action-edit{background:#edf4fb!important;color:#174d78!important;border:1px solid #cbdceb!important}
+#content button.icon-action-delete,#content button.icon-action-reject,#content button.icon-action-cancel{background:#fff0f0!important;color:#b42332!important;border:1px solid #f1c6ca!important}
+#content button.icon-action-save,#content button.icon-action-approve{background:#eaf7f0!important;color:#167347!important;border:1px solid #c3e5d1!important}
+#content button.icon-action-back,#content button.icon-action-refresh,#content button.icon-action-view{background:#f1f5f9!important;color:#334e68!important;border:1px solid #d7e0e9!important}
+#content button.icon-action-send,#content button.icon-action-add{background:#eaf2fb!important;color:#164e7a!important;border:1px solid #cbdceb!important}
+#content button.icon-only-action:hover{filter:brightness(.96);transform:translateY(-1px)}
+#content button.icon-only-action:focus-visible{outline:3px solid #78a9d4;outline-offset:2px}
