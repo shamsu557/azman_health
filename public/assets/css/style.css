@@ -159,3 +159,15 @@ header>div>img{margin-right:auto}
 .availability-time-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .availability-form{max-width:720px}
 @media(max-width:640px){header>div{gap:8px}header>div>img{max-width:58%;height:auto;max-height:52px}.availability-time-grid{grid-template-columns:1fr 1fr}}
+
+
+/* User management tabs and focused edit form */
+.user-management-tabs{display:flex;gap:10px;align-items:center;margin:14px 0 18px;padding-bottom:10px;border-bottom:1px solid #dbe3ec}
+.user-management-tabs button{min-width:130px;padding:10px 16px;border:1px solid #d2dce7;border-radius:9px;background:#fff;color:#173b5e;font-weight:600;cursor:pointer}
+.user-management-tabs button.active{background:#eaf2f8;border-color:#6b8eae;color:#123b5b}
+#userManagementPanel{width:100%}
+#editUserForm,#newUserForm{max-width:820px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+#editUserForm label,#newUserForm label{display:flex;flex-direction:column;gap:6px}
+#editUserForm .flex,#newUserForm .flex,#editUserForm p,#newUserForm p{grid-column:1/-1}
+#specialtyGuidance{margin-top:-4px}
+@media(max-width:650px){.user-management-tabs{display:grid;grid-template-columns:1fr 1fr}#editUserForm,#newUserForm{grid-template-columns:1fr}#editUserForm .flex,#newUserForm .flex,#editUserForm p,#newUserForm p{grid-column:1}}
