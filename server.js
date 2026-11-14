@@ -66,7 +66,7 @@ app.post('/api/auth/first-login-setup',auth,wrap(async(req,res)=>{
 }));
 
 app.get('/api/departments',auth,approved,wrap(async(req,res)=>{const [rows]=await query('SELECT id,name FROM departments WHERE active=1 ORDER BY name');res.json(rows)}));
-app.get('/api/users',auth,approved,allow('admin','support','it'),wrap(async(req,res)=>{const [rows]=await query('SELECT id,name,email,identifier,phone,role,admin_level,status,department,gender,professional_rank,profile_image_id,created_at FROM users ORDER BY created_at DESC LIMIT 300');res.json(rows)}));
+app.get('/api/users',auth,approved,allow('admin','support','it'),wrap(async(req,res)=>{const [rows]=await query('SELECT u.id,u.name,u.email,u.identifier,u.phone,u.role,u.admin_level,u.status,u.department,u.gender,u.professional_rank,u.profile_image_id,cp.specialty,cp.license_number,u.created_at FROM users u LEFT JOIN clinician_profiles cp ON cp.user_id=u.id ORDER BY u.created_at DESC LIMIT 300');res.json(rows)}));
 app.patch('/api/users/:id/status',auth,approved,allow('admin','support','it'),wrap(async(req,res)=>{if(!['approved','rejected','suspended','pending'].includes(req.body.status))throw bad(400,'Invalid status');const [target]=await query('SELECT role,admin_level FROM users WHERE id=?',[req.params.id]);if(!target.length)throw bad(404,'User not found');if(req.session.user.role==='support'&&!['student','staff'].includes(target[0].role))throw bad(403,'Support can change student and university staff accounts only');if(req.session.user.role==='it'&&target[0].role==='admin')throw bad(403,'IT Support cannot change administrator accounts');if(target[0].role==='admin'&&(req.session.user.admin_level!=='super'||target[0].admin_level==='super'))throw bad(403,'Administrator protected');if(Number(req.params.id)===req.session.user.id)throw bad(400,'Cannot change own status');await query('UPDATE users SET status=? WHERE id=?',[req.body.status,req.params.id]);await audit(req,'user_status','user',req.params.id,{status:req.body.status});res.json({ok:true})}));
 app.post('/api/users/professional',(req,res)=>res.status(410).json({error:'Use the authorized account creation screen. Accounts are provisioned with default passwords and first-login setup.'}));
 app.get('/api/dependants',auth,approved,wrap(async(req,res)=>{const [rows]=await query('SELECT * FROM dependants WHERE staff_id=? ORDER BY id DESC',[getUser(req).id]);res.json(rows)}));
@@ -396,9 +396,9 @@ app.patch('/api/admin/users/:id',auth,approved,allow('admin','it'),wrap(async(re
  const role=req.body.role||target.role;
  if(!['student','staff','doctor','consultant','nurse','lab','pharmacy','support','reception','records','it','admin'].includes(role))throw bad(400,'Invalid role');
  if(role==='admin'&&actor.admin_level!=='super')throw bad(403,'Only super admin can assign administrator role');
- const name=text(req.body.name),email=text(req.body.email).toLowerCase(),identifier=text(req.body.identifier),phone=text(req.body.phone),department=text(req.body.department);
- if(!name||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw bad(400,'Name and email required');
- await query('UPDATE users SET name=?,email=?,identifier=?,phone=?,department=?,role=? WHERE id=?',[name,email,identifier||null,phone||null,department||null,role,target.id]);
+ const name=text(req.body.name),email=text(req.body.email).toLowerCase(),identifier=text(req.body.identifier),phone=text(req.body.phone),department=text(req.body.department),gender=req.body.gender,rank=req.body.rank,specialty=text(req.body.specialty),license_number=text(req.body.license_number);
+ if(!name||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!validGender(gender)||!validRank(rank)||(['doctor','consultant'].includes(role)&&!specialty))throw bad(400,'Name, email, gender, rank and clinical specialty are required');
+ const conn=await pool.getConnection();try{await conn.beginTransaction();await conn.execute('UPDATE users SET name=?,email=?,identifier=?,phone=?,department=?,role=?,gender=?,professional_rank=? WHERE id=?',[name,email,identifier||null,phone||null,department||null,role,gender,text(rank)||null,target.id]);if(['doctor','consultant'].includes(role))await conn.execute('INSERT INTO clinician_profiles(user_id,license_number,specialty) VALUES(?,?,?) ON DUPLICATE KEY UPDATE license_number=VALUES(license_number),specialty=VALUES(specialty)',[target.id,license_number||null,specialty]);await conn.commit();}catch(e){await conn.rollback();throw e}finally{conn.release()}
  await audit(req,'user_edited','user',target.id);res.json({ok:true});
 }));
 app.delete('/api/admin/users/:id',auth,approved,allow('admin','it'),wrap(async(req,res)=>{
@@ -417,7 +417,7 @@ app.post('/api/admin/users',auth,approved,allow('admin','it'),wrap(async(req,res
  const permitted=['student','staff','doctor','consultant','nurse','lab','pharmacy','support','reception','records','it','admin'];
  if(!permitted.includes(role))throw bad(400,'Select a valid account type');
  if(role==='admin'&&!(getUser(req).role==='admin'&&getUser(req).admin_level==='super'))throw bad(403,'Only the super administrator can create administrator accounts');
- if(!text(name)||!text(identifier)||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text(email))||!validGender(gender)||!validRank(rank))throw bad(400,'Name, email, identifier and gender are required');
+ if(!text(name)||!text(identifier)||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text(email))||!validGender(gender)||!validRank(rank)||(['doctor','consultant'].includes(role)&&!text(specialty)))throw bad(400,'Name, email, identifier, gender, rank and clinical specialty are required');
  const defaultPassword=role==='student'?'stud123':'staff123';
  const conn=await pool.getConnection();try{await conn.beginTransaction();
   const [r]=await conn.execute("INSERT INTO users(name,email,identifier,phone,role,department,gender,professional_rank,password_hash,status,admin_level,must_change_password) VALUES(?,?,?,?,?,?,?,?,?,'approved',?,1)",[text(name),text(email).toLowerCase(),text(identifier).toUpperCase(),text(phone)||null,role,text(department)||null,gender,text(rank)||null,await bcrypt.hash(defaultPassword,12),role==='admin'?'assistant':null]);
