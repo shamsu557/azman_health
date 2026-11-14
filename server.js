@@ -418,7 +418,7 @@ app.post('/api/admin/users',auth,approved,allow('admin','it'),wrap(async(req,res
  if(!permitted.includes(role))throw bad(400,'Select a valid account type');
  if(role==='admin'&&!(getUser(req).role==='admin'&&getUser(req).admin_level==='super'))throw bad(403,'Only the super administrator can create administrator accounts');
  if(!text(name)||!text(identifier)||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text(email))||!validGender(gender)||!validRank(rank)||(['doctor','consultant'].includes(role)&&!text(specialty)))throw bad(400,'Name, email, identifier, gender, rank and clinical specialty are required');
- const defaultPassword=role==='student'?'stud123':'staff123';
+ const defaultPassword=crypto.randomBytes(18).toString('base64url');
  const conn=await pool.getConnection();try{await conn.beginTransaction();
   const [r]=await conn.execute("INSERT INTO users(name,email,identifier,phone,role,department,gender,professional_rank,password_hash,status,admin_level,must_change_password) VALUES(?,?,?,?,?,?,?,?,?,'approved',?,1)",[text(name),text(email).toLowerCase(),text(identifier).toUpperCase(),text(phone)||null,role,text(department)||null,gender,text(rank)||null,await bcrypt.hash(defaultPassword,12),role==='admin'?'assistant':null]);
   if(['doctor','consultant'].includes(role))await conn.execute('INSERT INTO clinician_profiles(user_id,license_number,specialty) VALUES(?,?,?)',[r.insertId,text(license_number)||null,text(specialty)||null]);
@@ -429,7 +429,7 @@ app.post('/api/admin/users/:id/reset-password',auth,approved,allow('admin','it')
  const [rows]=await query('SELECT id,role,admin_level FROM users WHERE id=?',[req.params.id]);const target=rows[0];if(!target)throw bad(404,'User not found');
  if(getUser(req).role==='it'&&target.role==='admin')throw bad(403,'IT Support cannot reset administrator passwords');
  if(target.role==='admin'&&getUser(req).role==='admin'&&getUser(req).admin_level!=='super')throw bad(403,'Only the super administrator can reset an administrator password');
- const temporary=target.role==='student'?'stud123':'staff123';
+ const temporary=crypto.randomBytes(18).toString('base64url');
  await query('UPDATE users SET password_hash=?,must_change_password=1 WHERE id=?',[await bcrypt.hash(temporary,12),target.id]);
  await audit(req,'account_password_reset','user',target.id,{by_role:getUser(req).role});res.json({ok:true,temporary_password:temporary,must_change_password:true});
 }));
