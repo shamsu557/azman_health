@@ -1,14 +1,14 @@
 let csrf='',clinicians=[];
-// Return to the existing portal document instead of reloading the login page.
-document.getElementById('backDashboard')?.addEventListener('click',()=>{
+const backToDashboard=()=>{
  const ref=document.referrer;
- let samePortal=false;
- try{const u=new URL(ref);samePortal=u.origin===location.origin&&(u.pathname==='/'||u.pathname==='/index.html')}
- catch{}
- if(samePortal&&history.length>1){history.back();return}
- // Fallback: the main portal restores the authenticated session from /api/auth/me.
- location.replace('/?returnToDashboard=1');
-});
+ try{
+  const previous=new URL(ref);
+  if(previous.origin===location.origin && (previous.pathname==='/'||previous.pathname.endsWith('/index.html')) && history.length>1){history.back();return;}
+ }catch{}
+ if(history.length>1){history.back();return;}
+ location.replace('/');
+};
+document.getElementById('backDashboard')?.addEventListener('click',backToDashboard);
 
 const $=id=>document.getElementById(id);
 async function api(url,method='GET',data){
@@ -18,7 +18,28 @@ async function api(url,method='GET',data){
  if(!r.ok)throw Error(out.error||out.message||`Request failed (${r.status})`);return out
 }
 function fields(f){return Object.fromEntries(new FormData(f).entries())}
-function show(id,obj){$(id).textContent=JSON.stringify(obj,null,2)}
+function show(id,obj){
+ const host=$(id);if(!host)return;host.replaceChildren();
+ const safe=v=>v===null||v===undefined||v===''?'—':typeof v==='object'?(Array.isArray(v)?v.map(x=>typeof x==='object'?Object.entries(x).map(([k,val])=>`${k}: ${safe(val)}`).join(', '):String(x)).join('; '):Object.entries(v).map(([k,val])=>`${k}: ${safe(val)}`).join('; ')):String(v);
+ if(obj===null||obj===undefined){host.textContent='No records available.';return}
+ if(Array.isArray(obj)){
+  if(!obj.length){host.textContent='No records available.';return}
+  const keys=[...new Set(obj.flatMap(row=>row&&typeof row==='object'?Object.keys(row):['Details']))];
+  const table=document.createElement('table');table.className='data-table';
+  const thead=document.createElement('thead'),hr=document.createElement('tr');
+  keys.forEach(k=>{const th=document.createElement('th');th.textContent=k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());hr.append(th)});thead.append(hr);table.append(thead);
+  const tbody=document.createElement('tbody');
+  obj.forEach(row=>{const tr=document.createElement('tr');keys.forEach(k=>{const td=document.createElement('td');td.textContent=safe(row&&typeof row==='object'?row[k]:row);tr.append(td)});tbody.append(tr)});
+  table.append(tbody);host.append(table);return;
+ }
+ if(typeof obj==='object'){
+  const entries=Object.entries(obj);
+  const grid=document.createElement('div');grid.className='summary-grid';
+  entries.forEach(([key,value])=>{const card=document.createElement('div');card.className='summary-item';const label=document.createElement('span');label.textContent=key.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());const val=document.createElement('strong');val.textContent=safe(value);card.append(label,val);grid.append(card)});
+  host.append(grid);return;
+ }
+ const p=document.createElement('p');p.textContent=String(obj);host.append(p);
+}
 function action(fn){return async e=>{e?.preventDefault?.();try{await fn(e);$('result').textContent='Request completed'}catch(err){$('result').textContent=err.message}}}
 function dateTime(d,t){return d+' '+t+':00'}
 function fillDoctors(){
@@ -38,8 +59,8 @@ async function loadShifts(){
  rows.forEach(r=>{const tr=document.createElement('tr');[r.clinician_name||'Unknown doctor',r.starts_at,r.ends_at,r.coverage,r.status].forEach(v=>{const td=document.createElement('td');td.textContent=v??'—';tr.append(td)});
  const td=document.createElement('td');
  if(['admin','support'].includes(window.currentRole)&&r.status!=='completed'){
-  const edit=document.createElement('button');edit.textContent='Edit';edit.onclick=()=>editShift(r);td.append(edit);
-  const del=document.createElement('button');del.textContent='Delete';del.onclick=async()=>{if(!confirm('Delete this shift?'))return;try{await api('/api/shifts/'+r.id,'DELETE');await loadShifts()}catch(e){$('result').textContent=e.message}};td.append(del)
+  const edit=document.createElement('button');edit.innerHTML='<span aria-hidden="true">✎</span>';edit.title='Edit shift';edit.setAttribute('aria-label','Edit shift');edit.onclick=()=>editShift(r);td.append(edit);
+  const del=document.createElement('button');del.innerHTML='<span aria-hidden="true">⌫</span>';del.title='Delete shift';del.setAttribute('aria-label','Delete shift');del.onclick=async()=>{if(!confirm('Delete this shift?'))return;try{await api('/api/shifts/'+r.id,'DELETE');await loadShifts()}catch(e){$('result').textContent=e.message}};td.append(del)
  }tr.append(td);table.append(tr)});
  box.append(table)
 }
