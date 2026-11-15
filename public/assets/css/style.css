@@ -214,3 +214,6 @@ body.auth-checking:before{content:'Opening secure HealthConnect portal…';posit
 .daily-schedule-day small{font-weight:400;color:var(--muted,#687782)}
 .daily-schedule-row input:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:640px){.daily-schedule-row{grid-template-columns:1fr 1fr}.daily-schedule-day{grid-column:1/-1}}
+\n
+.availability-date-range{display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:12px;margin:12px 0}
+@media(max-width:640px){.availability-date-range{grid-template-columns:1fr}}
