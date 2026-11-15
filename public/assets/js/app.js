@@ -114,8 +114,8 @@ async function portal(){resetIdleTimer();document.body.classList.remove('auth-mo
  if(['admin','support'].includes(me.role))nav.push(['clinicalConsole','Clinical operations']);
  if(['admin','support'].includes(me.role))nav.push(['shifts','Doctor shifts']);
  nav.push(['profile','My profile']);
- const accountNumber=me.identifier||me.spn_number||me.registration_number||'Account number not set';
- $('#nav').innerHTML=nav.filter((x,i)=>nav.findIndex(y=>y[0]===x[0])===i).map(x=>`<button class="navbtn" data-view="${x[0]}">${x[1]}</button>`).join('')+`<div class="sidebar-account"><button type="button" class="sidebar-profile" id="sidebarProfile" aria-label="Open my profile">${photo(me.profile_image_id,me.name)}<span class="sidebar-person"><strong>${esc(me.name)}</strong><small>${esc(accountNumber)}</small></span></button><button type="button" class="navbtn sidebar-logout" id="sidebarLogout">Log out</button></div>`;
+ const accountNumber=me.identifier||me.spn_number||me.registration_number||'Number unavailable';
+ $('#nav').innerHTML=nav.filter((x,i)=>nav.findIndex(y=>y[0]===x[0])===i).map(x=>`<button class="navbtn" data-view="${x[0]}">${x[1]}</button>`).join('')+`<div class="sidebar-account"><button type="button" class="sidebar-profile" id="sidebarProfile" aria-label="Open my profile">${photo(me.profile_image_id,me.name)}<span class="sidebar-person"><strong>${esc(me.name)}</strong><small>${esc(['student'].includes(me.role)?'Registration No.: ':'SPN: ')}${esc(accountNumber)}</small></span></button><button type="button" class="navbtn sidebar-logout" id="sidebarLogout">Log out</button></div>`;
  $('#nav').querySelectorAll('button[data-view]').forEach(b=>b.onclick=()=>view(b.dataset.view));$('#sidebarProfile').onclick=()=>view('profile');$('#sidebarLogout').onclick=()=>$('#logout').click();
  $('#mobileMenu').onclick=()=>{const open=$('#nav').classList.toggle('mobile-open');$('#mobileMenu').classList.toggle('is-open',open);$('#mobileMenu').setAttribute('aria-expanded',String(open));$('#mobileMenu').setAttribute('aria-label',open?'Close navigation menu':'Open navigation menu')};view('dashboard')}
 
