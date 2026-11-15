@@ -264,37 +264,20 @@ async function doctorDashboard(){
  $('#content').querySelectorAll('[data-doc]').forEach(b=>b.onclick=()=>view(b.dataset.doc));$('#content').querySelectorAll('[data-wa-appt]').forEach(b=>b.onclick=async()=>{const popup=window.open('about:blank','_blank');try{const d=await req('/appointments/'+b.dataset.waAppt+'/whatsapp');if(popup)popup.location=d.url;else location.href=d.url}catch(e){if(popup)popup.close();toast(e.message)}});
 }
 
-function weeklyScheduleControls(prefix,weekStart){
+
+function weeklyScheduleControls(prefix){
  const names=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
  return `<div class="daily-schedule-grid">${names.map((name,i)=>`<div class="daily-schedule-row" data-schedule-day="${i}">
-  <label class="daily-schedule-day"><input type="checkbox" name="${prefix}_day_${i}" value="${i}"><span>${name}</span><small data-schedule-date="${i}"></small></label>
+  <label class="daily-schedule-day"><input type="checkbox" name="${prefix}_day_${i}" value="${i}"><span>${name}</span></label>
   <label>Start time<input class="field" type="time" name="${prefix}_start_${i}" value="09:00" disabled></label>
   <label>End time<input class="field" type="time" name="${prefix}_end_${i}" value="17:00" disabled></label>
  </div>`).join('')}</div>`;
-}
-function mondayOfWeek(dateValue){
- const d=new Date(`${dateValue}T12:00:00`);
- const day=(d.getDay()+6)%7;
- d.setDate(d.getDate()-day);
- return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 function datePlusDays(dateValue,n){
  const d=new Date(`${dateValue}T12:00:00`);d.setDate(d.getDate()+n);
  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-function wireDailySchedule(formEl,prefix){
- const week=formEl.querySelector(`[name="${prefix}_week_start"]`);
- const updateDates=()=>{
-  const monday=mondayOfWeek(week.value);
-  week.value=monday;
-  for(let i=0;i<7;i++){
-   const date=datePlusDays(monday,i);
-   const d=formEl.querySelector(`[data-schedule-date="${i}"]`);
-   if(d)d.textContent=date;
-  }
- };
- week.addEventListener('change',updateDates);
- updateDates();
+function wireDateRangeSchedule(formEl,prefix){
  for(let i=0;i<7;i++){
   const check=formEl.querySelector(`[name="${prefix}_day_${i}"]`);
   const start=formEl.querySelector(`[name="${prefix}_start_${i}"]`);
@@ -306,53 +289,62 @@ function wireDailySchedule(formEl,prefix){
  if(all)all.onclick=()=>{for(let i=0;i<7;i++){const c=formEl.querySelector(`[name="${prefix}_day_${i}"]`);c.checked=true;c.dispatchEvent(new Event('change'));}};
  if(none)none.onclick=()=>{for(let i=0;i<7;i++){const c=formEl.querySelector(`[name="${prefix}_day_${i}"]`);c.checked=false;c.dispatchEvent(new Event('change'));}};
  return ()=>{
-  const monday=mondayOfWeek(week.value),items=[];
+  const from=formEl.elements[`${prefix}_start_date`].value;
+  const to=formEl.elements[`${prefix}_end_date`].value;
+  if(!from||!to||to<from)throw new Error('Choose a valid start date and end date. The end date cannot be earlier than the start date.');
+  const chosen=[];
   for(let i=0;i<7;i++){
    const check=formEl.querySelector(`[name="${prefix}_day_${i}"]`);
    if(!check.checked)continue;
    const start=formEl.querySelector(`[name="${prefix}_start_${i}"]`).value;
    const end=formEl.querySelector(`[name="${prefix}_end_${i}"]`).value;
-   if(!start||!end||end<=start)throw new Error(`Enter valid, separate start and end times for ${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][i]}.`);
-   items.push({date:datePlusDays(monday,i),start,end});
+   if(!start||!end||end<=start)throw new Error(`Enter valid start and end times for ${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][i]}.`);
+   chosen.push({weekday:(i+1)%7,start,end});
   }
-  if(!items.length)throw new Error('Tick at least one day you will be working.');
-  return items;
+  if(!chosen.length)throw new Error('Tick at least one weekday you will be working.');
+  const result=[];
+  const startDate=new Date(`${from}T12:00:00`),endDate=new Date(`${to}T12:00:00`);
+  for(const d=new Date(startDate);d<=endDate;d.setDate(d.getDate()+1)){
+   const date=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+   const day=d.getDay(),pattern=chosen.find(x=>x.weekday===day);
+   if(pattern)result.push({date,start:pattern.start,end:pattern.end});
+  }
+  if(!result.length)throw new Error('No selected weekdays fall within this date range. Extend the date range or select other days.');
+  return result;
  };
 }
-async function saveDailySchedule(items,endpoint,payload){
+async function saveDateRangeSchedule(items,endpoint,payload){
  let saved=0,failures=[];
  for(const item of items){
-  try{
-   await req(endpoint,'POST',{...payload,starts_at:item.date+' '+item.start+':00',ends_at:item.date+' '+item.end+':00'});
-   saved++;
-  }catch(err){failures.push(`${item.date}: ${err.message}`);}
+  try{await req(endpoint,'POST',{...payload,starts_at:item.date+' '+item.start+':00',ends_at:item.date+' '+item.end+':00'});saved++;}
+  catch(err){failures.push(`${item.date}: ${err.message}`);}
  }
  return {saved,failures};
 }
 async function availabilityView(){
  const isClinician=['doctor','consultant'].includes(me.role),canManage=['admin','support'].includes(me.role);
  const rows=await req('/availability');
- const now=new Date(),monday=mondayOfWeek(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`);
+ const today=new Date(),todayText=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
  const formHtml=(isClinician||canManage)?`<form id="availabilityForm" class="wide availability-form">
   <h3>${canManage?'Set doctor availability':'Set my availability'}</h3>
   ${canManage?`<label>Doctor / consultant<select class="field" name="clinician_id" required><option value="">Select clinician</option>${opts(clinicians)}</select></label>`:''}
-  <label>Week starting (Monday)<input class="field" type="date" name="availability_week_start" value="${monday}" required></label>
-  <p class="muted">Tick each day you are available. Enter separate start and end times for every selected day. Unchecked days will not be made available.</p>
-  ${weeklyScheduleControls('availability',monday)}
+  <div class="availability-date-range"><label>Available from<input class="field" type="date" name="availability_start_date" min="${todayText}" value="${todayText}" required></label><label>Available until<input class="field" type="date" name="availability_end_date" min="${todayText}" value="${datePlusDays(todayText,13)}" required></label></div>
+  <p class="muted">Choose any date range, including two weeks or a full month. Tick the weekdays you will work and enter separate hours for each weekday. The selected weekday hours repeat on every matching date within the range.</p>
+  ${weeklyScheduleControls('availability')}
   <div class="flex gap-2"><button type="button" class="secondary" data-select-all="availability">Select all days</button><button type="button" class="secondary" data-clear-days="availability">Clear days</button></div>
-  <button class="primary">Save daily availability</button>
+  <button class="primary">Save availability for date range</button>
  </form>`:'';
  const action=r=>((canManage||isClinician&&Number(r.clinician_id)===Number(me.id))?`<button class="smallbtn" data-edit-availability="${r.id}" title="Edit" aria-label="Edit availability">✎</button> <button class="smallbtn danger" data-delete-availability="${r.id}" title="Delete" aria-label="Delete availability">🗑</button>`:'—');
- $('#content').innerHTML=`<h2>${isClinician?'My availability':canManage?'Manage doctor availability':'Doctor availability'}</h2><p>Availability is recorded separately for each date and time. Different working hours can be set for every weekday.</p>${formHtml}`+tbl(rows,[['Doctor','clinician'],['Date',r=>String(r.starts_at).slice(0,10)],['Start time',r=>String(r.starts_at).slice(11,16)],['End time',r=>String(r.ends_at).slice(11,16)],['Actions',action]]);
+ $('#content').innerHTML=`<h2>${isClinician?'My availability':canManage?'Manage doctor availability':'Doctor availability'}</h2><p>Set availability across any date range. Each selected weekday has independent hours, repeated on matching dates within the range.</p>${formHtml}`+tbl(rows,[['Doctor','clinician'],['Date',r=>String(r.starts_at).slice(0,10)],['Start time',r=>String(r.starts_at).slice(11,16)],['End time',r=>String(r.ends_at).slice(11,16)],['Actions',action]]);
  const f=$('#availabilityForm');
  if(f){
-  const collect=wireDailySchedule(f,'availability');
+  const collect=wireDateRangeSchedule(f,'availability');
+  f.elements.availability_start_date.addEventListener('change',()=>{f.elements.availability_end_date.min=f.elements.availability_start_date.value;if(f.elements.availability_end_date.value<f.elements.availability_start_date.value)f.elements.availability_end_date.value=f.elements.availability_start_date.value;});
   f.onsubmit=async e=>{
-   e.preventDefault();
-   let items;try{items=collect()}catch(err){toast(err.message);return;}
-   const result=await saveDailySchedule(items,'/availability',{clinician_id:f.elements.clinician_id?.value||undefined});
-   if(result.saved)toast(`${result.saved} day(s) of availability saved.${result.failures.length?' Some days were not saved: '+result.failures.join(' | '):''}`,true);
-   else toast(`No availability was saved: ${result.failures.join(' | ')||'Please check the selected days.'}`);
+   e.preventDefault();let items;try{items=collect()}catch(err){toast(err.message);return;}
+   const result=await saveDateRangeSchedule(items,'/availability',{clinician_id:f.elements.clinician_id?.value||undefined});
+   if(result.saved)toast(`${result.saved} dated availability period(s) saved.${result.failures.length?' Some dates were skipped: '+result.failures.join(' | '):''}`,true);
+   else toast(`No availability was saved: ${result.failures.join(' | ')||'Check the date range and selected days.'}`);
    availabilityView();
   };
  }
@@ -362,8 +354,7 @@ async function availabilityView(){
   const start=prompt('Start time (HH:MM)',String(r.starts_at).slice(11,16));if(!start)return;
   const end=prompt('End time (HH:MM)',String(r.ends_at).slice(11,16));if(!end)return;
   if(end<=start){toast('End time must be later than start time.');return;}
-  let clinician_id=r.clinician_id;
-  if(canManage){const id=prompt('Doctor user ID',String(r.clinician_id));if(id)clinician_id=id;}
+  let clinician_id=r.clinician_id;if(canManage){const id=prompt('Doctor user ID',String(r.clinician_id));if(id)clinician_id=id;}
   try{await req('/availability/'+r.id,'PATCH',{starts_at:date+' '+start+':00',ends_at:date+' '+end+':00',clinician_id});toast('Availability updated',true);availabilityView();}catch(err){toast(err.message);}
  });
  $('#content').querySelectorAll('[data-delete-availability]').forEach(b=>b.onclick=async()=>{
@@ -373,27 +364,28 @@ async function availabilityView(){
 }
 async function shiftsView(){
  const canManage=['admin','support'].includes(me.role),rows=await req('/shifts');
- const now=new Date(),monday=mondayOfWeek(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`);
+ const today=new Date(),todayText=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
  const formHtml=canManage?`<form id="shiftForm" class="wide">
   <h3>Create doctor shifts</h3>
   <label>Doctor<select class="field" name="clinician_id" required>${opts(clinicians)}</select></label>
-  <label>Week starting (Monday)<input class="field" type="date" name="shift_week_start" value="${monday}" required></label>
-  <p class="muted">Tick the days the doctor will work. Each selected day has its own shift start and end time. For example, Monday 3:00 PM–8:00 PM and Tuesday 6:00 AM–2:00 PM.</p>
-  ${weeklyScheduleControls('shift',monday)}
+  <div class="availability-date-range"><label>Shift from<input class="field" type="date" name="shift_start_date" min="${todayText}" value="${todayText}" required></label><label>Shift until<input class="field" type="date" name="shift_end_date" min="${todayText}" value="${datePlusDays(todayText,13)}" required></label></div>
+  <p class="muted">Choose a date range of one or more weeks. Tick the weekdays the doctor will work and set different hours for each weekday. Those hours repeat on matching dates within the range.</p>
+  ${weeklyScheduleControls('shift')}
   <div class="flex gap-2"><button type="button" class="secondary" data-select-all="shift">Select all days</button><button type="button" class="secondary" data-clear-days="shift">Clear days</button></div>
   <label>Coverage<select class="field" name="coverage"><option value="physical">Physical</option><option value="online">Online</option><option value="both">Both</option><option value="on_call">On call</option></select></label>
-  <button class="primary">Save daily shifts</button>
+  <button class="primary">Save shifts for date range</button>
  </form>`:'';
  const action=r=>canManage?`<button class="smallbtn" data-edit-shift="${r.id}" title="Edit" aria-label="Edit">✎</button> <button class="smallbtn danger" data-delete-shift="${r.id}" title="Delete" aria-label="Delete">🗑</button>`:'—';
- $('#content').innerHTML=`<h2>Doctor shifts</h2><p>Each selected weekday is saved as an individual shift, with its own working hours.</p>${formHtml}`+tbl(rows,[['Doctor','clinician_name'],['Date',r=>String(r.starts_at).slice(0,10)],['Start time',r=>String(r.starts_at).slice(11,16)],['End time',r=>String(r.ends_at).slice(11,16)],['Coverage','coverage'],['Status','status'],['Actions',action]]);
+ $('#content').innerHTML=`<h2>Doctor shifts</h2><p>Set shifts across any date range, with independent hours for each selected weekday.</p>${formHtml}`+tbl(rows,[['Doctor','clinician_name'],['Date',r=>String(r.starts_at).slice(0,10)],['Start time',r=>String(r.starts_at).slice(11,16)],['End time',r=>String(r.ends_at).slice(11,16)],['Coverage','coverage'],['Status','status'],['Actions',action]]);
  const f=$('#shiftForm');
  if(f){
-  const collect=wireDailySchedule(f,'shift');
+  const collect=wireDateRangeSchedule(f,'shift');
+  f.elements.shift_start_date.addEventListener('change',()=>{f.elements.shift_end_date.min=f.elements.shift_start_date.value;if(f.elements.shift_end_date.value<f.elements.shift_start_date.value)f.elements.shift_end_date.value=f.elements.shift_start_date.value;});
   f.onsubmit=async e=>{
    e.preventDefault();let items;try{items=collect()}catch(err){toast(err.message);return;}
-   const result=await saveDailySchedule(items,'/shifts',{clinician_id:f.elements.clinician_id.value,coverage:f.elements.coverage.value});
-   if(result.saved)toast(`${result.saved} shift(s) saved.${result.failures.length?' Some days were not saved: '+result.failures.join(' | '):''}`,true);
-   else toast(`No shifts were saved: ${result.failures.join(' | ')||'Please check the selected days.'}`);
+   const result=await saveDateRangeSchedule(items,'/shifts',{clinician_id:f.elements.clinician_id.value,coverage:f.elements.coverage.value});
+   if(result.saved)toast(`${result.saved} dated shift(s) saved.${result.failures.length?' Some dates were skipped: '+result.failures.join(' | '):''}`,true);
+   else toast(`No shifts were saved: ${result.failures.join(' | ')||'Check the date range and selected days.'}`);
    shiftsView();
   };
  }
