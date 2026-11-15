@@ -2,7 +2,7 @@
 require('dotenv').config();
 const express=require('express'),path=require('path'),crypto=require('crypto'),bcrypt=require('bcryptjs'),helmet=require('helmet'),session=require('express-session'),rateLimit=require('express-rate-limit'),MySQLStore=require('express-mysql-session')(session),sharp=require('sharp');
 const {pool,query}=require('./mysql');
-const {questions,normalizeAnswer,validQuestion,validPassword}=require('./security');
+const {validPassword}=require('./security');
 const app=express();app.disable('x-powered-by');if(process.env.NODE_ENV==='production')app.set('trust proxy',1);
 app.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],scriptSrc:["'self'"],styleSrc:["'self'"],imgSrc:["'self'",'data:'],connectSrc:["'self'"],objectSrc:["'none'"],frameAncestors:["'none'"]}}}));
 app.use(express.json({limit:'100kb'}));
@@ -14,7 +14,7 @@ app.use(session({name:'azman.sid',secret:process.env.SESSION_SECRET,store,resave
 app.use('/api',(req,res,next)=>{if(!req.session?.user)return next();const now=Date.now(),last=Number(req.session.lastActivityAt||now);if(now-last>5*60*1000){return req.session.destroy(()=>res.status(401).json({error:'Your session expired after five minutes of inactivity. Please sign in again.'}));}req.session.lastActivityAt=now;req.session.cookie.maxAge=5*60*1000;next();});
 // Explicit public page routes: do not depend on extension fallback.
 app.get(['/forgot-password','/forgot-password/'],(req,res)=>res.sendFile(path.join(__dirname,'public','forgot-password.html')));
-app.get(['/admin/password','/admin/password/'],(req,res)=>res.sendFile(path.join(__dirname,'public','admin-password.html')));
+app.get(['/admin/password','/admin/password/'],(req,res)=>res.redirect('/forgot-password'));
 app.get(['/clinical-console','/clinical-console/'],(req,res)=>res.redirect('/clinical-console.html'));
 app.use(express.static(path.join(__dirname,'public'),{dotfiles:'ignore'}));
 app.use('/api',(req,res,next)=>{res.set('Cache-Control','no-store');next()});
@@ -34,7 +34,7 @@ const STAFF_ACCOUNT_ROLES=['staff','admin','doctor','consultant','nurse','lab','
 app.get('/api/health',wrap(async(req,res)=>{await query('SELECT 1');res.json({ok:true})}));
 app.get('/api/csrf',(req,res)=>{if(!req.session.csrf)req.session.csrf=crypto.randomBytes(24).toString('hex');res.json({token:req.session.csrf})});
 app.use('/api',(req,res,next)=>{if(['GET','HEAD','OPTIONS'].includes(req.method))return next();if(!req.session.csrf||req.get('x-csrf-token')!==req.session.csrf)return next(bad(403,'Invalid security token'));next()});
-app.get('/api/security/questions',(req,res)=>res.json({questions}));
+
 app.post('/api/auth/register',(req,res)=>res.status(403).json({error:'Self-registration is disabled. Contact Azman University IT Support or the administrator to create your account.'}));
 app.post('/api/auth/login',wrap(async(req,res)=>{
  const login=text(req.body.login);
@@ -47,24 +47,16 @@ app.post('/api/auth/login',wrap(async(req,res)=>{
 app.post('/api/auth/logout',auth,(req,res)=>req.session.destroy(()=>res.json({ok:true})));
 app.get('/api/auth/me',wrap(async(req,res)=>{if(!req.session.user)return res.json({user:null});const [rows]=await query('SELECT id,name,identifier,role,status,admin_level,profile_image_id,must_change_password FROM users WHERE id=?',[req.session.user.id]);const u=rows[0];if(!u||u.status!=='approved'){req.session.destroy(()=>{});return res.json({user:null})}req.session.user={id:u.id,name:u.name,identifier:u.identifier,role:u.role,status:u.status,admin_level:u.admin_level,profile_image_id:u.profile_image_id,must_change_password:!!u.must_change_password};res.json({user:req.session.user})}));
 app.post('/api/auth/first-login-setup',auth,wrap(async(req,res)=>{
- const password=String(req.body.password||''),confirm=String(req.body.confirm_password||''),question=req.body.security_question,answer=normalizeAnswer(req.body.security_answer);
- if(!req.session.user.must_change_password)throw bad(409,'First-login setup has already been completed');
- if(!validPassword(password)||password!==confirm||!validQuestion(question)||!answer)throw bad(400,'Choose a security question, enter an answer and provide matching passwords of at least 6 characters.');
- const hash=await bcrypt.hash(password,12),answerHash=await bcrypt.hash(answer,12),uid=req.session.user.id;
- const conn=await pool.getConnection();let recoveryCode=null;
- try{await conn.beginTransaction();
-  await conn.execute('UPDATE users SET password_hash=?,must_change_password=0 WHERE id=?',[hash,uid]);
-  await conn.execute('INSERT INTO user_security_questions(user_id,question,answer_hash) VALUES(?,?,?) ON DUPLICATE KEY UPDATE question=VALUES(question),answer_hash=VALUES(answer_hash)',[uid,question,answerHash]);
-  if(req.session.user.role==='admin'){
-   recoveryCode=crypto.randomBytes(18).toString('hex');const recoveryHash=await bcrypt.hash(recoveryCode,12);
-   await conn.execute('INSERT INTO admin_recovery(user_id,question,answer_hash,recovery_code_hash) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE question=VALUES(question),answer_hash=VALUES(answer_hash),recovery_code_hash=VALUES(recovery_code_hash)',[uid,question,answerHash,recoveryHash]);
-  }
-  await conn.commit();
- }catch(e){await conn.rollback();throw e}finally{conn.release()}
- req.session.user.must_change_password=false;await audit(req,'first_login_setup','user',uid);
- res.json({ok:true,message:'Your password and security question have been saved.',recovery_code:recoveryCode});
+ const password=String(req.body.password||''),confirm=String(req.body.confirm_password||''),uid=req.session.user.id;
+ if(!req.session.user.must_change_password)throw bad(409,'First-login password setup has already been completed');
+ if(!validPassword(password)||password!==confirm)throw bad(400,'Provide matching passwords of at least 6 characters.');
+ const hash=await bcrypt.hash(password,12),recoveryToken=crypto.randomBytes(32).toString('hex'),tokenHash=await bcrypt.hash(recoveryToken,12);
+ const conn=await pool.getConnection();
+ try{await conn.beginTransaction();await conn.execute('UPDATE users SET password_hash=?,must_change_password=0 WHERE id=?',[hash,uid]);await conn.execute('INSERT INTO recovery_tokens(user_id,token_hash,failed_attempts,locked_until,created_at,used_at) VALUES(?,?,0,NULL,NOW(),NULL) ON DUPLICATE KEY UPDATE token_hash=VALUES(token_hash),failed_attempts=0,locked_until=NULL,created_at=NOW(),used_at=NULL',[uid,tokenHash]);await conn.commit();}
+ catch(e){await conn.rollback();throw e}finally{conn.release()}
+ req.session.user.must_change_password=false;await audit(req,'first_login_password_changed','user',uid);
+ res.set('Cache-Control','no-store').json({ok:true,message:'Password changed. Save your recovery token now; it will not be shown again.',recovery_token:recoveryToken});
 }));
-
 app.get('/api/departments',auth,approved,wrap(async(req,res)=>{const [rows]=await query('SELECT id,name FROM departments WHERE active=1 ORDER BY name');res.json(rows)}));
 app.get('/api/users',auth,approved,allow('admin','support','it'),wrap(async(req,res)=>{const [rows]=await query('SELECT u.id,u.name,u.email,u.identifier,u.phone,u.role,u.admin_level,u.status,u.department,u.gender,u.professional_rank,u.profile_image_id,cp.specialty,cp.license_number,u.created_at FROM users u LEFT JOIN clinician_profiles cp ON cp.user_id=u.id ORDER BY u.created_at DESC LIMIT 300');res.json(rows)}));
 app.patch('/api/users/:id/status',auth,approved,allow('admin','support','it'),wrap(async(req,res)=>{if(!['approved','rejected','suspended','pending'].includes(req.body.status))throw bad(400,'Invalid status');const [target]=await query('SELECT role,admin_level FROM users WHERE id=?',[req.params.id]);if(!target.length)throw bad(404,'User not found');if(req.session.user.role==='support'&&!['student','staff'].includes(target[0].role))throw bad(403,'Support can change student and university staff accounts only');if(req.session.user.role==='it'&&target[0].role==='admin')throw bad(403,'IT Support cannot change administrator accounts');if(target[0].role==='admin'&&(req.session.user.admin_level!=='super'||target[0].admin_level==='super'))throw bad(403,'Administrator protected');if(Number(req.params.id)===req.session.user.id)throw bad(400,'Cannot change own status');await query('UPDATE users SET status=? WHERE id=?',[req.body.status,req.params.id]);await audit(req,'user_status','user',req.params.id,{status:req.body.status});res.json({ok:true})}));
@@ -225,60 +217,37 @@ app.get('/api/labs/:id/request.pdf',auth,approved,wrap(async(req,res)=>{const [r
 
 app.post('/api/images/profile',auth,approved,upload.single('image'),wrap(async(req,res)=>{if(!req.file)throw bad(400,'Valid image required');const bytes=await sharp(req.file.buffer,{limitInputPixels:16000000}).rotate().resize(256,256,{fit:'cover'}).webp({quality:72}).toBuffer();const [r]=await query('INSERT INTO images(owner_user_id,mime,bytes) VALUES(?,?,?)',[getUser(req).id,'image/webp',bytes]);await query('UPDATE users SET profile_image_id=? WHERE id=?',[r.insertId,getUser(req).id]);await audit(req,'profile_image','image',r.insertId);res.status(201).json({id:r.insertId})}));
 
-// Hidden administrator recovery page: deliberately no link from login UI.
-app.get('/admin/password',(req,res)=>res.sendFile(path.join(__dirname,'public','admin-password.html')));
-const recoveryLimit=rateLimit({windowMs:15*60*1000,limit:5,standardHeaders:'draft-7',legacyHeaders:false});
-// Public self-service recovery. Security questions alone are a weak recovery factor;
-// production deployment should add verified email/one-time-code ownership proof.
-app.get('/forgot-password',(req,res)=>res.sendFile(path.join(__dirname,'public','forgot-password.html')));
-app.post('/api/auth/recovery/question',recoveryLimit,wrap(async(req,res)=>{
- const login=text(req.body.login);if(!login)throw bad(400,'Enter your email or registration number / SPN');
- const [rows]=await query('SELECT q.question FROM users u JOIN user_security_questions q ON q.user_id=u.id WHERE (u.email=? OR u.identifier=?) AND u.status=\'approved\' LIMIT 1',[login.toLowerCase(),login]);
- // Do not reveal whether an account exists.
- res.set('Cache-Control','no-store').json({question:rows[0]?.question||null});
-}));
-app.post('/api/auth/recovery/reset',recoveryLimit,wrap(async(req,res)=>{
- const login=text(req.body.login),answer=normalizeAnswer(req.body.answer),password=String(req.body.password||'');
- if(!login||!answer||!validPassword(password))throw bad(400,'Provide your login, security answer and new password (6+ characters)');
- const [rows]=await query('SELECT u.id,u.role,q.answer_hash FROM users u JOIN user_security_questions q ON q.user_id=u.id WHERE (u.email=? OR u.identifier=?) AND u.status=\'approved\' LIMIT 1',[login.toLowerCase(),login]);
- const user=rows[0];
- // Administrators use their stronger offline-code recovery route.
- if(user?.role==='admin')throw bad(403,'Administrator password recovery requires the offline recovery code. Open /admin/password');
- if(!user||!await bcrypt.compare(answer,user.answer_hash))throw bad(400,'Unable to verify recovery details');
- await query('UPDATE users SET password_hash=? WHERE id=?',[await bcrypt.hash(password,12),user.id]);
- await audit(req,'self_service_password_reset','user',user.id);res.json({message:'Password updated. Sign in with your new password.'});
-}));
-app.get('/api/admin/recovery/question',recoveryLimit,wrap(async(req,res)=>{
- const email=text(req.query.email).toLowerCase();
- const [rows]=await query("SELECT r.question FROM admin_recovery r JOIN users u ON u.id=r.user_id WHERE u.email=? AND u.role='admin' AND u.status='approved' LIMIT 1",[email]);
- // Generic response prevents revealing whether an account exists, except when question is returned.
- res.set('Cache-Control','no-store').json({question:rows[0]?.question||'Enter your security answer and offline recovery code.'});
-}));
-app.post('/api/admin/recovery/reset',recoveryLimit,wrap(async(req,res)=>{
- const email=text(req.body.email).toLowerCase(),answer=normalizeAnswer(req.body.answer),code=text(req.body.code),password=String(req.body.password||'');
- if(!email||!answer||!code||!validPassword(password))throw bad(400,'All recovery fields are required; password must be at least 6 characters.');
- const [rows]=await query("SELECT u.id,r.answer_hash,r.recovery_code_hash,r.failed_attempts,r.locked_until FROM users u JOIN admin_recovery r ON r.user_id=u.id WHERE u.email=? AND u.role='admin' AND u.status='approved' LIMIT 1",[email]);
- const record=rows[0],generic='Recovery failed. Check your credentials or contact the system administrator.';
- if(!record){await bcrypt.compare(answer,'$2b$12$C6UzMDM.H6dfI/f/IKcEeO2ynq3jE1Hy5oqTuwQqgEZwD/ScM8sHu');throw bad(400,generic)}
- if(record.locked_until&&new Date(record.locked_until)>new Date())throw bad(429,'Recovery temporarily locked. Try again later.');
- const validAnswer=await bcrypt.compare(answer,record.answer_hash),validCode=await bcrypt.compare(code,record.recovery_code_hash);
- if(!validAnswer||!validCode){
-  await query("UPDATE admin_recovery SET failed_attempts=failed_attempts+1,locked_until=IF(failed_attempts+1>=5,DATE_ADD(NOW(),INTERVAL 30 MINUTE),locked_until) WHERE user_id=?",[record.id]);
-  throw bad(400,generic);
- }
- const newHash=await bcrypt.hash(password,12),newCode=crypto.randomBytes(18).toString('hex'),newCodeHash=await bcrypt.hash(newCode,12);
- const conn=await pool.getConnection();
- try{
-  await conn.beginTransaction();
-  await conn.execute('UPDATE users SET password_hash=? WHERE id=?',[newHash,record.id]);
-  await conn.execute('UPDATE admin_recovery SET recovery_code_hash=?,failed_attempts=0,locked_until=NULL WHERE user_id=?',[newCodeHash,record.id]);
-  await conn.execute("INSERT INTO audit_logs(actor_id,action,target_type,target_id) VALUES(?,'admin_password_recovered','user',?)",[record.id,String(record.id)]);
-  await conn.commit();
- }catch(e){await conn.rollback();throw e}finally{conn.release()}
- res.set('Cache-Control','no-store').json({message:'Password reset. Store the new offline recovery code securely: '+newCode});
-}));
-
-// Doctor shift coverage: separate online and physical presence, never assume a doctor is available.
+// Unified recovery-token flow for all approved account categories.
+ const recoveryLimit=rateLimit({windowMs:15*60*1000,limit:5,standardHeaders:'draft-7',legacyHeaders:false});
+ app.get('/forgot-password',(req,res)=>res.sendFile(path.join(__dirname,'public','forgot-password.html')));
+ app.post('/api/auth/recovery/reset',recoveryLimit,wrap(async(req,res)=>{
+  const login=text(req.body.login),token=text(req.body.recovery_token),password=String(req.body.password||''),confirm=String(req.body.confirm_password||'');
+  if(!login||!token||!validPassword(password)||password!==confirm)throw bad(400,'Enter your account identifier, recovery token and matching new passwords.');
+  const [found]=await query("SELECT id FROM users WHERE (email=? OR identifier=?) AND status='approved' LIMIT 1",[login.toLowerCase(),login]);
+  if(!found.length){await bcrypt.compare(token,'$2b$12$C6UzMDM.H6dfI/f/IKcEeO2ynq3jE1Hy5oqTuwQqgEZwD/ScM8sHu');throw bad(400,'Recovery could not be completed. Check your details or contact IT Support.');}
+  const uid=found[0].id,conn=await pool.getConnection();let nextToken;
+  try{await conn.beginTransaction();
+   const [records]=await conn.execute('SELECT token_hash,failed_attempts,locked_until,used_at FROM recovery_tokens WHERE user_id=? FOR UPDATE',[uid]);const rec=records[0];
+   if(!rec||rec.used_at)throw bad(400,'Recovery could not be completed. Check your details or contact IT Support.');
+   if(rec.locked_until&&new Date(rec.locked_until)>new Date())throw bad(429,'Recovery is temporarily locked. Try again later.');
+   if(!await bcrypt.compare(token,rec.token_hash)){await conn.execute("UPDATE recovery_tokens SET failed_attempts=failed_attempts+1,locked_until=IF(failed_attempts+1>=5,DATE_ADD(NOW(),INTERVAL 30 MINUTE),locked_until) WHERE user_id=?",[uid]);await conn.commit();throw bad(400,'Recovery could not be completed. Check your details or contact IT Support.');}
+   const newHash=await bcrypt.hash(password,12);nextToken=crypto.randomBytes(32).toString('hex');const nextHash=await bcrypt.hash(nextToken,12);
+   await conn.execute('UPDATE users SET password_hash=?,must_change_password=0 WHERE id=?',[newHash,uid]);
+   await conn.execute('UPDATE recovery_tokens SET token_hash=?,failed_attempts=0,locked_until=NULL,created_at=NOW(),used_at=NULL WHERE user_id=?',[nextHash,uid]);
+   await conn.execute("INSERT INTO audit_logs(actor_id,action,target_type,target_id,details) VALUES(NULL,'password_recovered','user',?,JSON_OBJECT('method','recovery_token'))",[String(uid)]);
+   await conn.commit();
+  }catch(e){await conn.rollback();throw e}finally{conn.release()}
+  res.set('Cache-Control','no-store').json({ok:true,message:'Password reset successfully. Your previous recovery token is invalid. Save the new token; it will not be shown again.',recovery_token:nextToken});
+ }));
+ app.post('/api/auth/recovery/enroll',auth,approved,recoveryLimit,wrap(async(req,res)=>{
+  const current=String(req.body.current_password||''),[rows]=await query('SELECT password_hash FROM users WHERE id=?',[getUser(req).id]);
+  if(!rows.length||!await bcrypt.compare(current,rows[0].password_hash))throw bad(401,'Current password is incorrect.');
+  const token=crypto.randomBytes(32).toString('hex'),hash=await bcrypt.hash(token,12);
+  await query('INSERT INTO recovery_tokens(user_id,token_hash,failed_attempts,created_at) VALUES(?,?,0,NOW()) ON DUPLICATE KEY UPDATE token_hash=VALUES(token_hash),failed_attempts=0,locked_until=NULL,created_at=NOW(),used_at=NULL',[getUser(req).id,hash]);
+  await audit(req,'recovery_token_enrolled','user',getUser(req).id);
+  res.set('Cache-Control','no-store').json({ok:true,recovery_token:token,message:'Save this recovery token now. It will not be shown again.'});
+ }));
+ // Doctor shift coverage: separate online and physical presence, never assume a doctor is available.
 app.get('/api/shifts',auth,approved,wrap(async(req,res)=>{const [rows]=await query("SELECT s.*,u.name clinician_name FROM doctor_shifts s JOIN users u ON u.id=s.clinician_id WHERE s.ends_at>=DATE_SUB(NOW(),INTERVAL 1 DAY) ORDER BY s.starts_at LIMIT 300");res.json(rows)}));
 app.post('/api/shifts',auth,approved,allow('admin','support'),wrap(async(req,res)=>{const {clinician_id,starts_at,ends_at,coverage}=req.body;if(!positive(clinician_id)||!validDate(starts_at)||!validDate(ends_at)||ends_at<=starts_at||!['physical','online','both','on_call'].includes(coverage))throw bad(400,'Invalid shift');const [docs]=await query("SELECT id FROM users WHERE id=? AND role IN ('doctor','consultant') AND status='approved'",[clinician_id]);if(!docs.length)throw bad(400,'Clinician not eligible');const [overlap]=await query("SELECT id FROM doctor_shifts WHERE clinician_id=? AND status!='cancelled' AND starts_at<? AND ends_at>? LIMIT 1",[clinician_id,ends_at,starts_at]);if(overlap.length)throw bad(409,'Shift overlaps an existing shift');const [r]=await query('INSERT INTO doctor_shifts(clinician_id,starts_at,ends_at,coverage,created_by) VALUES(?,?,?,?,?)',[clinician_id,starts_at,ends_at,coverage,getUser(req).id]);await audit(req,'shift_created','shift',r.insertId);res.status(201).json({id:r.insertId})}));
 app.patch('/api/shifts/:id',auth,approved,allow('admin','support'),wrap(async(req,res)=>{const {clinician_id,starts_at,ends_at,coverage}=req.body;if(!positive(clinician_id)||!validDate(starts_at)||!validDate(ends_at)||ends_at<=starts_at||!['physical','online','both','on_call'].includes(coverage))throw bad(400,'Enter a doctor, valid start/end date and time, and coverage type');const [oldRows]=await query("SELECT id FROM doctor_shifts WHERE id=? AND status NOT IN ('completed','cancelled')",[req.params.id]);if(!oldRows.length)throw bad(404,'Editable shift not found');const [docs]=await query("SELECT id FROM users WHERE id=? AND role IN ('doctor','consultant') AND status='approved'",[clinician_id]);if(!docs.length)throw bad(400,'Clinician not eligible');const [overlap]=await query("SELECT id FROM doctor_shifts WHERE clinician_id=? AND id<>? AND status!='cancelled' AND starts_at<? AND ends_at>? LIMIT 1",[clinician_id,req.params.id,ends_at,starts_at]);if(overlap.length)throw bad(409,'Shift overlaps an existing shift');await query('UPDATE doctor_shifts SET clinician_id=?,starts_at=?,ends_at=?,coverage=? WHERE id=?',[clinician_id,starts_at,ends_at,coverage,req.params.id]);await audit(req,'shift_updated','shift',req.params.id);res.json({ok:true})}));
@@ -430,7 +399,7 @@ app.post('/api/admin/users/:id/reset-password',auth,approved,allow('admin','it')
  if(getUser(req).role==='it'&&target.role==='admin')throw bad(403,'IT Support cannot reset administrator passwords');
  if(target.role==='admin'&&getUser(req).role==='admin'&&getUser(req).admin_level!=='super')throw bad(403,'Only the super administrator can reset an administrator password');
  const temporary=crypto.randomBytes(18).toString('base64url');
- await query('UPDATE users SET password_hash=?,must_change_password=1 WHERE id=?',[await bcrypt.hash(temporary,12),target.id]);
+ await query('UPDATE users SET password_hash=?,must_change_password=1 WHERE id=?',[await bcrypt.hash(temporary,12),target.id]);await query('UPDATE recovery_tokens SET used_at=NOW() WHERE user_id=?',[target.id]);
  await audit(req,'account_password_reset','user',target.id,{by_role:getUser(req).role});res.json({ok:true,temporary_password:temporary,must_change_password:true});
 }));
 app.get('/api/audit/technical',auth,approved,allow('admin','it'),wrap(async(req,res)=>{
