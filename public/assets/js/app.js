@@ -263,23 +263,153 @@ async function doctorDashboard(){
  $('#content').innerHTML=`<h2>Clinical Dashboard</h2><p>Review appointments assigned to you, contact patients who requested or booked consultations, and manage your clinical workflow.</p><div class="grid"><div class="panel"><h3>Today's appointments</h3><strong class="metric">${active.length}</strong></div><div class="panel"><h3>Awaiting confirmation</h3><strong class="metric">${pending.length}</strong></div><div class="panel"><h3>Total assigned appointments</h3><strong class="metric">${rows.length}</strong></div></div><div class="action-grid"><button class="primary" data-doc="appointments">My appointments</button><button class="secondary" data-doc="contacts">Patient WhatsApp contacts</button><button class="secondary" data-doc="availability">Publish availability</button><button class="secondary" data-doc="workflow">Clinical workflows</button></div><h3>Upcoming patient requests</h3>`+tbl(rows.filter(r=>['requested','confirmed','checked_in','in_consultation'].includes(r.status)).slice(0,30),[['Patient',r=>esc(r.dependant_name||r.patient_name)],['Date','starts_at'],['Mode','mode'],['Status','status'],['WhatsApp',r=>`<button class="smallbtn" data-wa-appt="${r.id}">Chat patient</button>`]]);
  $('#content').querySelectorAll('[data-doc]').forEach(b=>b.onclick=()=>view(b.dataset.doc));$('#content').querySelectorAll('[data-wa-appt]').forEach(b=>b.onclick=async()=>{const popup=window.open('about:blank','_blank');try{const d=await req('/appointments/'+b.dataset.waAppt+'/whatsapp');if(popup)popup.location=d.url;else location.href=d.url}catch(e){if(popup)popup.close();toast(e.message)}});
 }
+
+function weeklyScheduleControls(prefix,weekStart){
+ const names=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+ return `<div class="daily-schedule-grid">${names.map((name,i)=>`<div class="daily-schedule-row" data-schedule-day="${i}">
+  <label class="daily-schedule-day"><input type="checkbox" name="${prefix}_day_${i}" value="${i}"><span>${name}</span><small data-schedule-date="${i}"></small></label>
+  <label>Start time<input class="field" type="time" name="${prefix}_start_${i}" value="09:00" disabled></label>
+  <label>End time<input class="field" type="time" name="${prefix}_end_${i}" value="17:00" disabled></label>
+ </div>`).join('')}</div>`;
+}
+function mondayOfWeek(dateValue){
+ const d=new Date(`${dateValue}T12:00:00`);
+ const day=(d.getDay()+6)%7;
+ d.setDate(d.getDate()-day);
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function datePlusDays(dateValue,n){
+ const d=new Date(`${dateValue}T12:00:00`);d.setDate(d.getDate()+n);
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function wireDailySchedule(formEl,prefix){
+ const week=formEl.querySelector(`[name="${prefix}_week_start"]`);
+ const updateDates=()=>{
+  const monday=mondayOfWeek(week.value);
+  week.value=monday;
+  for(let i=0;i<7;i++){
+   const date=datePlusDays(monday,i);
+   const d=formEl.querySelector(`[data-schedule-date="${i}"]`);
+   if(d)d.textContent=date;
+  }
+ };
+ week.addEventListener('change',updateDates);
+ updateDates();
+ for(let i=0;i<7;i++){
+  const check=formEl.querySelector(`[name="${prefix}_day_${i}"]`);
+  const start=formEl.querySelector(`[name="${prefix}_start_${i}"]`);
+  const end=formEl.querySelector(`[name="${prefix}_end_${i}"]`);
+  check.addEventListener('change',()=>{start.disabled=!check.checked;end.disabled=!check.checked;});
+ }
+ const all=formEl.querySelector(`[data-select-all="${prefix}"]`);
+ const none=formEl.querySelector(`[data-clear-days="${prefix}"]`);
+ if(all)all.onclick=()=>{for(let i=0;i<7;i++){const c=formEl.querySelector(`[name="${prefix}_day_${i}"]`);c.checked=true;c.dispatchEvent(new Event('change'));}};
+ if(none)none.onclick=()=>{for(let i=0;i<7;i++){const c=formEl.querySelector(`[name="${prefix}_day_${i}"]`);c.checked=false;c.dispatchEvent(new Event('change'));}};
+ return ()=>{
+  const monday=mondayOfWeek(week.value),items=[];
+  for(let i=0;i<7;i++){
+   const check=formEl.querySelector(`[name="${prefix}_day_${i}"]`);
+   if(!check.checked)continue;
+   const start=formEl.querySelector(`[name="${prefix}_start_${i}"]`).value;
+   const end=formEl.querySelector(`[name="${prefix}_end_${i}"]`).value;
+   if(!start||!end||end<=start)throw new Error(`Enter valid, separate start and end times for ${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][i]}.`);
+   items.push({date:datePlusDays(monday,i),start,end});
+  }
+  if(!items.length)throw new Error('Tick at least one day you will be working.');
+  return items;
+ };
+}
+async function saveDailySchedule(items,endpoint,payload){
+ let saved=0,failures=[];
+ for(const item of items){
+  try{
+   await req(endpoint,'POST',{...payload,starts_at:item.date+' '+item.start+':00',ends_at:item.date+' '+item.end+':00'});
+   saved++;
+  }catch(err){failures.push(`${item.date}: ${err.message}`);}
+ }
+ return {saved,failures};
+}
 async function availabilityView(){
  const isClinician=['doctor','consultant'].includes(me.role),canManage=['admin','support'].includes(me.role);
  const rows=await req('/availability');
- const formHtml=(isClinician||canManage)?`<form id="availabilityForm" class="wide availability-form"><h3>${canManage?'Set doctor availability':'Set my availability'}</h3>${canManage?`<label>Doctor / consultant<select class="field" name="clinician_id" required><option value="">Select clinician</option>${opts(clinicians)}</select></label>`:''}<div class="availability-time-grid"><label>Start date<input class="field" type="date" name="start_date" required></label><label>Start time<input class="field" type="time" name="start_time" required></label><label>End date<input class="field" type="date" name="end_date" required></label><label>End time<input class="field" type="time" name="end_time" required></label></div><p class="muted">Choose both the start and end date/time. You may create multiple availability ranges, including ranges across different dates.</p><button class="primary"><span aria-hidden="true">＋</span> Add availability</button></form>`:'';
- const action=(r)=>((canManage||isClinician&&Number(r.clinician_id)===Number(me.id))?`<button class="smallbtn" data-edit-availability="${r.id}" data-source="${r.source||'availability'}" title="Edit" aria-label="Edit availability">✎</button> <button class="smallbtn danger" data-delete-availability="${r.id}" title="Delete" aria-label="Delete availability">🗑</button>`:'—');
- $('#content').innerHTML=`<h2>${isClinician?'My availability':canManage?'Manage doctor availability':'Doctor availability'}</h2><p>Set the exact start and end date and time for each availability period. No fixed working hours are imposed.</p>${formHtml}`+tbl(rows,[['Doctor','clinician'],['Start date',r=>String(r.starts_at).slice(0,10)],['Start time',r=>String(r.starts_at).slice(11,16)],['End date',r=>String(r.ends_at).slice(0,10)],['End time',r=>String(r.ends_at).slice(11,16)],['Actions',action]]);
- if($('#availabilityForm'))$('#availabilityForm').onsubmit=async e=>{e.preventDefault();const d=form(e.target),starts=d.start_date+' '+d.start_time+':00',ends=d.end_date+' '+d.end_time+':00';if(!d.start_date||!d.start_time||!d.end_date||!d.end_time){toast('Enter both start and end dates and times.');return;}if(ends<=starts){toast('The ending date and time must be later than the starting date and time.');return;}try{await req('/availability','POST',{clinician_id:d.clinician_id||undefined,starts_at:starts,ends_at:ends});toast('Availability saved',true);availabilityView()}catch(err){toast(err.message)}};
- $('#content').querySelectorAll('[data-edit-availability]').forEach(b=>b.onclick=async()=>{if(b.dataset.source==='shift'){view('shifts');return;}const row=rows.find(x=>String(x.id)===b.dataset.editAvailability);const sd=prompt('Start date (YYYY-MM-DD)',String(row.starts_at).slice(0,10));if(!sd)return;const st=prompt('Start time (HH:MM)',String(row.starts_at).slice(11,16));if(!st)return;const ed=prompt('End date (YYYY-MM-DD)',String(row.ends_at).slice(0,10));if(!ed)return;const et=prompt('End time (HH:MM)',String(row.ends_at).slice(11,16));if(!et)return;const starts=sd+' '+st+':00',ends=ed+' '+et+':00';if(ends<=starts){toast('The ending date and time must be later than the starting date and time.');return;}let clinician_id=row.clinician_id;if(canManage){const choice=prompt('Doctor user ID (leave unchanged or enter another approved doctor ID)',String(row.clinician_id));if(choice)clinician_id=choice;}try{await req('/availability/'+row.id,'PATCH',{starts_at:starts,ends_at:ends,clinician_id});toast('Availability updated',true);availabilityView()}catch(err){toast(err.message)}});
- $('#content').querySelectorAll('[data-delete-availability]').forEach(b=>b.onclick=async()=>{if(rows.find(x=>String(x.id)===b.dataset.deleteAvailability)?.source==='shift'){try{await req('/shifts/'+b.dataset.deleteAvailability,'DELETE');toast('Shift deleted',true);availabilityView()}catch(err){toast(err.message)}return;}if(!confirm('Delete this availability? Existing bookings prevent deletion.'))return;try{await req('/availability/'+b.dataset.deleteAvailability,'DELETE');toast('Availability deleted',true);availabilityView()}catch(err){toast(err.message)}});
+ const now=new Date(),monday=mondayOfWeek(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`);
+ const formHtml=(isClinician||canManage)?`<form id="availabilityForm" class="wide availability-form">
+  <h3>${canManage?'Set doctor availability':'Set my availability'}</h3>
+  ${canManage?`<label>Doctor / consultant<select class="field" name="clinician_id" required><option value="">Select clinician</option>${opts(clinicians)}</select></label>`:''}
+  <label>Week starting (Monday)<input class="field" type="date" name="availability_week_start" value="${monday}" required></label>
+  <p class="muted">Tick each day you are available. Enter separate start and end times for every selected day. Unchecked days will not be made available.</p>
+  ${weeklyScheduleControls('availability',monday)}
+  <div class="flex gap-2"><button type="button" class="secondary" data-select-all="availability">Select all days</button><button type="button" class="secondary" data-clear-days="availability">Clear days</button></div>
+  <button class="primary">Save daily availability</button>
+ </form>`:'';
+ const action=r=>((canManage||isClinician&&Number(r.clinician_id)===Number(me.id))?`<button class="smallbtn" data-edit-availability="${r.id}" title="Edit" aria-label="Edit availability">✎</button> <button class="smallbtn danger" data-delete-availability="${r.id}" title="Delete" aria-label="Delete availability">🗑</button>`:'—');
+ $('#content').innerHTML=`<h2>${isClinician?'My availability':canManage?'Manage doctor availability':'Doctor availability'}</h2><p>Availability is recorded separately for each date and time. Different working hours can be set for every weekday.</p>${formHtml}`+tbl(rows,[['Doctor','clinician'],['Date',r=>String(r.starts_at).slice(0,10)],['Start time',r=>String(r.starts_at).slice(11,16)],['End time',r=>String(r.ends_at).slice(11,16)],['Actions',action]]);
+ const f=$('#availabilityForm');
+ if(f){
+  const collect=wireDailySchedule(f,'availability');
+  f.onsubmit=async e=>{
+   e.preventDefault();
+   let items;try{items=collect()}catch(err){toast(err.message);return;}
+   const result=await saveDailySchedule(items,'/availability',{clinician_id:f.elements.clinician_id?.value||undefined});
+   if(result.saved)toast(`${result.saved} day(s) of availability saved.${result.failures.length?' Some days were not saved: '+result.failures.join(' | '):''}`,true);
+   else toast(`No availability was saved: ${result.failures.join(' | ')||'Please check the selected days.'}`);
+   availabilityView();
+  };
+ }
+ $('#content').querySelectorAll('[data-edit-availability]').forEach(b=>b.onclick=async()=>{
+  const r=rows.find(x=>String(x.id)===b.dataset.editAvailability);if(!r)return;
+  const date=prompt('Availability date (YYYY-MM-DD)',String(r.starts_at).slice(0,10));if(!date)return;
+  const start=prompt('Start time (HH:MM)',String(r.starts_at).slice(11,16));if(!start)return;
+  const end=prompt('End time (HH:MM)',String(r.ends_at).slice(11,16));if(!end)return;
+  if(end<=start){toast('End time must be later than start time.');return;}
+  let clinician_id=r.clinician_id;
+  if(canManage){const id=prompt('Doctor user ID',String(r.clinician_id));if(id)clinician_id=id;}
+  try{await req('/availability/'+r.id,'PATCH',{starts_at:date+' '+start+':00',ends_at:date+' '+end+':00',clinician_id});toast('Availability updated',true);availabilityView();}catch(err){toast(err.message);}
+ });
+ $('#content').querySelectorAll('[data-delete-availability]').forEach(b=>b.onclick=async()=>{
+  if(!confirm('Delete this availability period?'))return;
+  try{await req('/availability/'+b.dataset.deleteAvailability,'DELETE');toast('Availability deleted',true);availabilityView();}catch(err){toast(err.message);}
+ });
 }
 async function shiftsView(){
  const canManage=['admin','support'].includes(me.role),rows=await req('/shifts');
- const formHtml=canManage?`<form id="shiftForm" class="wide"><h3>Create doctor shift</h3><label>Doctor<select class="field" name="clinician_id" required>${opts(clinicians)}</select></label><div class="availability-time-grid"><label>Start date<input class="field" name="start_date" type="date" required></label><label>Start time<input class="field" name="start_time" type="time" required></label><label>End date<input class="field" name="end_date" type="date" required></label><label>End time<input class="field" name="end_time" type="time" required></label></div><label>Coverage<select class="field" name="coverage"><option value="physical">Physical</option><option value="online">Online</option><option value="both">Both</option><option value="on_call">On call</option></select></label><button class="primary">Create shift</button></form>`:'';
- $('#content').innerHTML=`<h2>Doctor shifts</h2><p>Manage physical, online, combined and on-call coverage. Start and end dates and times are selected separately.</p>${formHtml}`+tbl(rows,[['Doctor','clinician_name'],['Start','starts_at'],['End','ends_at'],['Coverage','coverage'],['Status','status'],['Actions',r=>canManage?`<button class="smallbtn" data-edit-shift="${r.id}" title="Edit" aria-label="Edit"><svg class="action-icon-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button> <button class="smallbtn danger" data-delete-shift="${r.id}" title="Delete" aria-label="Delete"><svg class="action-icon-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg></button>`:'—']]);
- if($('#shiftForm'))$('#shiftForm').onsubmit=async e=>{e.preventDefault();const d=form(e.target),starts=d.start_date+' '+d.start_time+':00',ends=d.end_date+' '+d.end_time+':00';if(ends<=starts){toast('End date and time must be later than start date and time.');return;}try{await req('/shifts','POST',{clinician_id:d.clinician_id,starts_at:starts,ends_at:ends,coverage:d.coverage});toast('Shift created',true);shiftsView()}catch(err){toast(err.message)}};
- $('#content').querySelectorAll('[data-edit-shift]').forEach(b=>b.onclick=async()=>{const r=rows.find(x=>String(x.id)===b.dataset.editShift);const clinician_id=prompt('Doctor user ID',String(r.clinician_id));if(!clinician_id)return;const sd=prompt('Start date (YYYY-MM-DD)',String(r.starts_at).slice(0,10));if(!sd)return;const st=prompt('Start time (HH:MM)',String(r.starts_at).slice(11,16));if(!st)return;const ed=prompt('End date (YYYY-MM-DD)',String(r.ends_at).slice(0,10));if(!ed)return;const et=prompt('End time (HH:MM)',String(r.ends_at).slice(11,16));if(!et)return;const coverage=prompt('Coverage: physical, online, both, on_call',r.coverage);if(!coverage)return;const starts_at=sd+' '+st+':00',ends_at=ed+' '+et+':00';if(ends_at<=starts_at){toast('End must be later than start.');return;}try{await req('/shifts/'+r.id,'PATCH',{clinician_id,starts_at,ends_at,coverage});toast('Shift updated',true);shiftsView()}catch(err){toast(err.message)}});
- $('#content').querySelectorAll('[data-delete-shift]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this shift?'))return;try{await req('/shifts/'+b.dataset.deleteShift,'DELETE');toast('Shift deleted',true);shiftsView()}catch(err){toast(err.message)}});
+ const now=new Date(),monday=mondayOfWeek(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`);
+ const formHtml=canManage?`<form id="shiftForm" class="wide">
+  <h3>Create doctor shifts</h3>
+  <label>Doctor<select class="field" name="clinician_id" required>${opts(clinicians)}</select></label>
+  <label>Week starting (Monday)<input class="field" type="date" name="shift_week_start" value="${monday}" required></label>
+  <p class="muted">Tick the days the doctor will work. Each selected day has its own shift start and end time. For example, Monday 3:00 PM–8:00 PM and Tuesday 6:00 AM–2:00 PM.</p>
+  ${weeklyScheduleControls('shift',monday)}
+  <div class="flex gap-2"><button type="button" class="secondary" data-select-all="shift">Select all days</button><button type="button" class="secondary" data-clear-days="shift">Clear days</button></div>
+  <label>Coverage<select class="field" name="coverage"><option value="physical">Physical</option><option value="online">Online</option><option value="both">Both</option><option value="on_call">On call</option></select></label>
+  <button class="primary">Save daily shifts</button>
+ </form>`:'';
+ const action=r=>canManage?`<button class="smallbtn" data-edit-shift="${r.id}" title="Edit" aria-label="Edit">✎</button> <button class="smallbtn danger" data-delete-shift="${r.id}" title="Delete" aria-label="Delete">🗑</button>`:'—';
+ $('#content').innerHTML=`<h2>Doctor shifts</h2><p>Each selected weekday is saved as an individual shift, with its own working hours.</p>${formHtml}`+tbl(rows,[['Doctor','clinician_name'],['Date',r=>String(r.starts_at).slice(0,10)],['Start time',r=>String(r.starts_at).slice(11,16)],['End time',r=>String(r.ends_at).slice(11,16)],['Coverage','coverage'],['Status','status'],['Actions',action]]);
+ const f=$('#shiftForm');
+ if(f){
+  const collect=wireDailySchedule(f,'shift');
+  f.onsubmit=async e=>{
+   e.preventDefault();let items;try{items=collect()}catch(err){toast(err.message);return;}
+   const result=await saveDailySchedule(items,'/shifts',{clinician_id:f.elements.clinician_id.value,coverage:f.elements.coverage.value});
+   if(result.saved)toast(`${result.saved} shift(s) saved.${result.failures.length?' Some days were not saved: '+result.failures.join(' | '):''}`,true);
+   else toast(`No shifts were saved: ${result.failures.join(' | ')||'Please check the selected days.'}`);
+   shiftsView();
+  };
+ }
+ $('#content').querySelectorAll('[data-edit-shift]').forEach(b=>b.onclick=async()=>{
+  const r=rows.find(x=>String(x.id)===b.dataset.editShift);if(!r)return;
+  const date=prompt('Shift date (YYYY-MM-DD)',String(r.starts_at).slice(0,10));if(!date)return;
+  const start=prompt('Start time (HH:MM)',String(r.starts_at).slice(11,16));if(!start)return;
+  const end=prompt('End time (HH:MM)',String(r.ends_at).slice(11,16));if(!end)return;
+  const coverage=prompt('Coverage: physical, online, both, on_call',r.coverage);if(!coverage)return;
+  if(end<=start){toast('End time must be later than start time.');return;}
+  try{await req('/shifts/'+r.id,'PATCH',{clinician_id:r.clinician_id,starts_at:date+' '+start+':00',ends_at:date+' '+end+':00',coverage});toast('Shift updated',true);shiftsView();}catch(err){toast(err.message);}
+ });
+ $('#content').querySelectorAll('[data-delete-shift]').forEach(b=>b.onclick=async()=>{
+  if(!confirm('Delete this shift?'))return;
+  try{await req('/shifts/'+b.dataset.deleteShift,'DELETE');toast('Shift deleted',true);shiftsView();}catch(err){toast(err.message);}
+ });
 }
 async function auditView(){const rows=await req('/audit/technical');$('#content').innerHTML='<h2>Account activity log</h2><p>Technical account provisioning, login and password events. Clinical notes are not displayed here.</p>'+tbl(rows,[['Date','created_at'],['Actor ID','actor_id'],['Action','action'],['Target','target_type'],['Target ID','target_id']])}
 
