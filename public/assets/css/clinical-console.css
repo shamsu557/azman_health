@@ -40,3 +40,9 @@ form button{justify-self:start}
 .summary-item strong{font-size:14px;overflow-wrap:anywhere}
 .data-panel:empty:after{content:'No records available.';display:block;color:var(--muted);padding:12px}
 #result:empty{display:none}
+
+.clinical-icon-button{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:40px!important;min-height:40px!important;padding:9px!important;border:1px solid #cbd8e4!important;border-radius:10px!important;background:#fff!important;color:#174b72!important;box-shadow:0 2px 6px rgba(20,48,72,.06)}
+.clinical-icon-button:hover{background:#edf4f9!important;border-color:#9db4c8!important}
+.clinical-action-icon{display:block;flex:0 0 auto}
+.clinical-icon-button:focus-visible{outline:3px solid #8fc3e5;outline-offset:2px}
+.data-table td:last-child{white-space:nowrap}
