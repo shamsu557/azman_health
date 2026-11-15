@@ -1,13 +1,29 @@
 let csrf='',clinicians=[];
-const backToDashboard=()=>{
- const ref=document.referrer;
- try{
-  const previous=new URL(ref);
-  if(previous.origin===location.origin && (previous.pathname==='/'||previous.pathname.endsWith('/index.html')) && history.length>1){history.back();return;}
- }catch{}
- if(history.length>1){history.back();return;}
- location.replace('/');
-};
+
+function clinicalIcon(name){
+ const paths={edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>',
+ delete:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/>',
+ refresh:'<path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M5.6 9A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 12.4-3"/>',
+ send:'<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+ whatsapp:'<path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20l1.2-5.2A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8.5 8.5c.6 2.5 2 4 4.5 5"/>',
+ open:'<path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/>',
+ check:'<path d="m5 12 4 4L19 6"/>',
+ close:'<path d="m18 6-12 12M6 6l12 12"/>'};
+ return `<svg class="clinical-action-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]||paths.open}</svg>`;
+}
+function enhanceClinicalButtons(scope=document){
+ const map={'Refresh shifts and coverage':'refresh','Refresh emergency requests':'refresh','Refresh chat':'refresh','Open consultant WhatsApp':'whatsapp','Send secure message':'send','Open consultation':'open','Respond':'check'};
+ scope.querySelectorAll('button').forEach(btn=>{
+  const label=(btn.textContent||'').trim();
+  if(!map[label]||btn.dataset.clinicalIcon==='1')return;
+  btn.title=label;btn.setAttribute('aria-label',label);btn.innerHTML=clinicalIcon(map[label]);btn.dataset.clinicalIcon='1';btn.classList.add('clinical-icon-button');
+ });
+}
+const clinicalIconObserver=new MutationObserver(records=>records.forEach(r=>r.addedNodes.forEach(n=>{if(n.nodeType===1)enhanceClinicalButtons(n)})));
+clinicalIconObserver.observe(document.body,{childList:true,subtree:true});
+
+enhanceClinicalButtons();
+const backToDashboard=()=>{location.replace('/?returnToDashboard=1')};
 document.getElementById('backDashboard')?.addEventListener('click',backToDashboard);
 
 const $=id=>document.getElementById(id);
@@ -59,8 +75,8 @@ async function loadShifts(){
  rows.forEach(r=>{const tr=document.createElement('tr');[r.clinician_name||'Unknown doctor',r.starts_at,r.ends_at,r.coverage,r.status].forEach(v=>{const td=document.createElement('td');td.textContent=v??'—';tr.append(td)});
  const td=document.createElement('td');
  if(['admin','support'].includes(window.currentRole)&&r.status!=='completed'){
-  const edit=document.createElement('button');edit.innerHTML='<span aria-hidden="true">✎</span>';edit.title='Edit shift';edit.setAttribute('aria-label','Edit shift');edit.onclick=()=>editShift(r);td.append(edit);
-  const del=document.createElement('button');del.innerHTML='<span aria-hidden="true">⌫</span>';del.title='Delete shift';del.setAttribute('aria-label','Delete shift');del.onclick=async()=>{if(!confirm('Delete this shift?'))return;try{await api('/api/shifts/'+r.id,'DELETE');await loadShifts()}catch(e){$('result').textContent=e.message}};td.append(del)
+  const edit=document.createElement('button');edit.innerHTML=clinicalIcon('edit');edit.title='Edit shift';edit.setAttribute('aria-label','Edit shift');edit.onclick=()=>editShift(r);td.append(edit);
+  const del=document.createElement('button');del.innerHTML=clinicalIcon('delete');del.title='Delete shift';del.setAttribute('aria-label','Delete shift');del.onclick=async()=>{if(!confirm('Delete this shift?'))return;try{await api('/api/shifts/'+r.id,'DELETE');await loadShifts()}catch(e){$('result').textContent=e.message}};td.append(del)
  }tr.append(td);table.append(tr)});
  box.append(table)
 }
