@@ -10,6 +10,18 @@ CREATE TABLE IF NOT EXISTS users (
  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  INDEX(role,status)
 );
+-- Unified one-time recovery tokens. Only bcrypt hashes are stored.
+CREATE TABLE IF NOT EXISTS recovery_tokens (
+ user_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+ token_hash VARCHAR(255) NOT NULL,
+ failed_attempts INT NOT NULL DEFAULT 0,
+ locked_until DATETIME NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ used_at DATETIME NULL,
+ CONSTRAINT fk_recovery_tokens_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+ INDEX idx_recovery_locked(locked_until)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS dependants (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, staff_id BIGINT UNSIGNED NOT NULL, dependant_number VARCHAR(100) NOT NULL UNIQUE, name VARCHAR(150) NOT NULL, relationship VARCHAR(30) NOT NULL, birth_date DATE, gender VARCHAR(30), phone VARCHAR(30),
  status ENUM('pending','approved','inactive','rejected') NOT NULL DEFAULT 'approved', image_id BIGINT UNSIGNED NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -48,18 +60,6 @@ CREATE TABLE IF NOT EXISTS inventory (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY 
 CREATE TABLE IF NOT EXISTS notifications (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id BIGINT UNSIGNED NULL, channel ENUM('in_app','whatsapp','email') NOT NULL, message TEXT NOT NULL, status ENUM('queued','sent','failed') DEFAULT 'queued', attempts INT DEFAULT 0, last_error VARCHAR(500), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(user_id) REFERENCES users(id));
 CREATE TABLE IF NOT EXISTS audit_logs (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, actor_id BIGINT UNSIGNED NULL, action VARCHAR(100) NOT NULL, target_type VARCHAR(80), target_id VARCHAR(80), details JSON, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX(actor_id,created_at));
 INSERT IGNORE INTO departments(name) VALUES ('GOPD'),('Paediatrics'),('Diabetes / Endocrinology'),('Gynaecology'),('Internal Medicine'),('Family Medicine'),('Dermatology'),('Mental Health'),('Dental'),('Laboratory');
-
--- Administrator recovery: execute this complete SQL script in MySQL Workbench/phpMyAdmin.
-CREATE TABLE IF NOT EXISTS admin_recovery (
- user_id BIGINT UNSIGNED PRIMARY KEY,
- question VARCHAR(240) NOT NULL,
- answer_hash VARCHAR(255) NOT NULL,
- recovery_code_hash VARCHAR(255) NOT NULL,
- failed_attempts INT NOT NULL DEFAULT 0,
- locked_until DATETIME NULL,
- updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- CONSTRAINT fk_admin_recovery_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-);
 
 
 -- 24-hour roster, flexible consultation methods, internal chat and emergency recall
@@ -100,16 +100,6 @@ CREATE TABLE IF NOT EXISTS emergency_requests (
  FOREIGN KEY(requested_by) REFERENCES users(id), FOREIGN KEY(clinician_id) REFERENCES users(id), INDEX(status,created_at)
 );
 
-
--- Security questions for student, staff and professional accounts.
--- Answers are normalized (trimmed and uppercase) before bcrypt hashing.
-CREATE TABLE IF NOT EXISTS user_security_questions (
- user_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
- question VARCHAR(240) NOT NULL,
- answer_hash VARCHAR(255) NOT NULL,
- created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
- FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
 
 
 -- Dependant modifications are requested by staff and reviewed by admin/support.
